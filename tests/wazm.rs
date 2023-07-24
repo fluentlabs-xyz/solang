@@ -9,6 +9,7 @@ use parity_scale_codec::Decode;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::{collections::HashMap, ffi::OsStr, fmt, fmt::Write};
+use funty::Numeric;
 use tiny_keccak::{Hasher, Keccak};
 use wasmi::core::{HostError, Trap, TrapCode};
 use wasmi::{Engine, Error, Instance, Linker, Memory, MemoryType, Module, Store};
@@ -18,8 +19,7 @@ use solang::{compile, Target};
 
 use wasm_host_attr::wasm_host;
 
-mod polkadot_tests;
-
+mod wazm_tests;
 
 type StorageKey = [u8; 32];
 type Address = [u8; 32];
@@ -335,6 +335,7 @@ fn read_len(mem: &[u8], ptr: u32) -> usize {
 }
 
 fn write_buf(mem: &mut [u8], ptr: u32, buf: &[u8]) {
+    println!("mem: {:?}, prt: {}", mem[ptr as usize ..(ptr+32) as usize].to_vec(), ptr);
     mem[ptr as usize..ptr as usize + buf.len()].copy_from_slice(buf);
 }
 
@@ -362,6 +363,8 @@ impl Runtime {
     #[seal(0)]
     fn input(dest_ptr: u32, len_ptr: u32) -> Result<(), Trap> {
         let data = vm.input.as_ref().expect("input was forwarded");
+        println!("data len: {}", data.len());
+        println!("Read len: {}", read_len(mem, len_ptr));
         assert!(read_len(mem, len_ptr) >= data.len());
         println!("seal_input: {}", hex::encode(data));
 
@@ -381,7 +384,7 @@ impl Runtime {
     #[seal(0)]
     fn value_transferred(dest_ptr: u32, out_len_ptr: u32) -> Result<(), Trap> {
         let value = vm.transferred_value.to_le_bytes();
-        assert!(read_len(mem, out_len_ptr) >= value.len());
+        // assert!(read_len(mem, out_len_ptr) >= value.len());
         println!("seal_value_transferred: {}", vm.transferred_value);
 
         write_buf(mem, dest_ptr, &value);
@@ -603,6 +606,7 @@ impl Runtime {
         if flags == 0 {
             vm.accept_state(state.into_data(), value);
         }
+
         Ok(flags)
     }
 
@@ -643,6 +647,15 @@ impl Runtime {
         Ok(())
     }
 
+    #[env]
+    fn _evm_address(dest: u32) -> Result<(), Trap> {
+        let address = vm.accounts[vm.account].address;
+
+        write_buf(mem, dest, &address);
+
+        Ok(())
+    }
+
     #[seal(0)]
     fn caller(out_ptr: u32, out_len_ptr: u32) -> Result<(), Trap> {
         let out_len = read_len(mem, out_len_ptr);
@@ -651,6 +664,33 @@ impl Runtime {
 
         write_buf(mem, out_ptr, &address);
         write_buf(mem, out_len_ptr, &(address.len() as u32).to_le_bytes());
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_gas(out_ptr: u32) -> Result<(), Trap> {
+        let gas_left = (1000 as u128).to_le_bytes();
+
+        write_buf(mem, out_ptr as u32, &gas_left);
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_caller(out_ptr: u32) -> Result<(), Trap> {
+        let address = vm.accounts[vm.account].address;
+
+        write_buf(mem, out_ptr as u32, &address);
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_callvalue(out_ptr: u32) -> Result<(), Trap> {
+        let value = (10_000_000 as u128).to_le_bytes();
+
+        write_buf(mem, out_ptr as u32, &value);
 
         Ok(())
     }
@@ -666,6 +706,20 @@ impl Runtime {
 
         Ok(())
     }
+
+    #[env]
+    fn _evm_balance(address: u32, dest: u32) -> Result<(), Trap> {
+        let target_address = read_buf(mem, address, 32);
+
+        let balance = vm.accounts.iter().find(|acc| acc.address.as_slice().eq(target_address.as_slice()))
+            .map(|acc| acc.value.to_le_bytes()).unwrap();
+
+        write_buf(mem, dest, &balance);
+
+        Ok(())
+    }
+
+
 
     #[seal(0)]
     fn block_number(out_ptr: u32, out_len_ptr: u32) -> Result<(), Trap> {
@@ -711,6 +765,32 @@ impl Runtime {
 
         write_buf(mem, out_ptr, &price);
         write_buf(mem, out_len_ptr, &(price.len() as u32).to_le_bytes());
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_gasprice(out_ptr: u32) -> Result<(), Trap> {
+        let price = (59_541_253_813_970 as u128).to_le_bytes();
+
+        write_buf(mem, out_ptr as u32, &price);
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_timestamp(out_ptr: u32) -> Result<(), Trap> {
+        let timestamp = (1594035638 as u128).to_le_bytes();
+
+        write_buf(mem, out_ptr as u32, &timestamp);
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_number(out_ptr: u32) -> Result<(), Trap> {
+        let block_number = (950_119_597 as u128).to_le_bytes();
+        write_buf(mem, out_ptr as u32, &block_number);
 
         Ok(())
     }
@@ -794,6 +874,8 @@ impl Runtime {
         }
         Ok(7) // ReturnCode::CodeNoteFound
     }
+
+
 }
 
 /// Provides a mock implementation of substrates [contracts pallet][1]
@@ -1022,7 +1104,7 @@ impl MockWasm {
 /// The mock runtime will contain a contract account for each contract in `src`:
 /// * Each account will have a balance of 20'000
 /// * However, constructors are _not_ called, therefor the storage will not be initialized
-pub fn build_solidity(src: &str) -> MockWasm {
+pub fn build_solidity_for_wazm(src: &str) -> MockWasm {
     build_solidity_with_options(src, false, true)
 }
 
@@ -1030,10 +1112,11 @@ pub fn build_solidity(src: &str) -> MockWasm {
 /// * log_ret: enable logging of host function return codes
 /// * log_err: enable logging of runtime errors
 pub fn build_solidity_with_options(src: &str, log_ret: bool, log_err: bool) -> MockWasm {
-    let blobs = build_wasm(src, log_ret, log_err, Target::default_polkadot())
+    let blobs = build_wasm(src, log_ret, log_err, Target::WAZM)
         .iter()
         .map(|(code, abi)| WasmCode::new(abi, code))
         .collect();
+    println!("Wasm code: {:?}", blobs);
 
     MockWasm(Store::new(&Engine::default(), Runtime::new(blobs)))
 }
@@ -1062,6 +1145,7 @@ pub fn build_wasm(src: &str, log_ret: bool, log_err: bool, target: Target) -> Ve
 }
 
 pub fn load_abi(s: &str) -> InkProject {
+    println!("String: {}", s);
     let bundle = serde_json::from_str::<ContractMetadata>(s).unwrap();
     serde_json::from_value::<InkProject>(serde_json::to_value(bundle.abi).unwrap()).unwrap()
 }

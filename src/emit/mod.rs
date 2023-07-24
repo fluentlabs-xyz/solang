@@ -25,6 +25,7 @@ pub mod polkadot;
 pub mod solana;
 mod storage;
 mod strings;
+mod wazm;
 
 use crate::codegen::{cfg::HashTy, Options};
 use crate::emit::binary::Binary;

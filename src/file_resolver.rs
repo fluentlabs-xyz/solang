@@ -135,7 +135,6 @@ impl FileResolver {
         filename: &OsStr,
     ) -> Result<ResolvedFile, String> {
         let path = PathBuf::from(filename);
-
         let path = if let Ok(m) = path.strip_prefix("./") {
             m.to_path_buf()
         } else {
