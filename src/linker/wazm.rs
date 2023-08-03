@@ -107,7 +107,8 @@ fn generate_import_section(section: SectionLimited<Import>, module: &mut Module)
             "clear_storage" | "contains_storage" | "get_storage" | "instantiate" | "terminate"
             | "seal_call" => "seal1",
             "_evm_gasprice" | "_evm_number" | "_evm_timestamp" | "_evm_address" | "_evm_balance" |
-            "_evm_gas" | "_evm_caller" | "_evm_callvalue" => "env",
+            "_evm_gas" | "_evm_caller" | "_evm_callvalue" | "_evm_create2" |  "_evm_create" |
+            "_evm_call" => "env",
             _ => "seal0",
         };
         imports.import(module_name, import.name, import_type);

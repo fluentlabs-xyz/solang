@@ -1,5 +1,10 @@
 contract flipper {
 	bool private value;
+	uint private mul;
+	uint private gasss;
+	address private add;
+	uint private balance;
+	uint private gas_left;
 
 	/// Constructor that initializes the `bool` value to the given `init_value`.
 	constructor(bool initvalue) {

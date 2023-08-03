@@ -188,9 +188,9 @@ fn call() {
         r##"
         contract superior {
             function test1() public {
-                // inferior i = new inferior();
-                //
-                // i.test1();
+                inferior i = new inferior();
+
+                i.test1();
                 //
                 // assert(keccak256("test1()") == hex"6b59084dfb7dcf1c687dd12ad5778be120c9121b21ef90a32ff73565a36c9cd3");
                 //
@@ -224,7 +224,7 @@ fn call() {
             constructor() {}
 
             function test1() public {
-                print("Baa!");
+                // print("Baa!");
             }
 
             function test2(uint64 x) public returns (uint64) {

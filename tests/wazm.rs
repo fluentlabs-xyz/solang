@@ -9,7 +9,9 @@ use parity_scale_codec::Decode;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::{collections::HashMap, ffi::OsStr, fmt, fmt::Write};
+use std::ptr::write_bytes;
 use funty::Numeric;
+use libc::truncate;
 use tiny_keccak::{Hasher, Keccak};
 use wasmi::core::{HostError, Trap, TrapCode};
 use wasmi::{Engine, Error, Instance, Linker, Memory, MemoryType, Module, Store};
@@ -22,7 +24,7 @@ use wasm_host_attr::wasm_host;
 mod wazm_tests;
 
 type StorageKey = [u8; 32];
-type Address = [u8; 32];
+type Address = [u8; 20];
 
 #[derive(Clone, Copy)]
 enum CallFlags {
@@ -106,7 +108,7 @@ impl WasmCode {
 }
 
 /// A `Contract` represent deployed Wasm code with its storage which can be executed.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Contract {
     code: WasmCode,
     storage: HashMap<StorageKey, Vec<u8>>,
@@ -173,7 +175,7 @@ impl Contract {
 }
 
 /// If contract is `Some`, this is considered to be a "contract account".
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 struct Account {
     address: Address,
     value: u128,
@@ -191,7 +193,7 @@ impl Account {
     /// The account address is derived based of the provided `salt`.
     fn with_contract(salt: &[u8], code: &WasmCode) -> Self {
         Self {
-            address: Address::try_from(blake2b(32, &[], salt).as_bytes()).unwrap(),
+            address: Address::try_from(blake2b(32, &[], salt).as_bytes()[12..].as_ref()).unwrap(),
             contract: Some(code.clone().into()),
             ..Default::default()
         }
@@ -310,7 +312,6 @@ impl Runtime {
     /// Returns `None` if there is no contract corresponding to the given `code_hash`.
     fn deploy(
         &mut self,
-        code_hash: Hash,
         value: u128,
         salt: &[u8],
         input: Vec<u8>,
@@ -318,13 +319,11 @@ impl Runtime {
         let account = self
             .blobs
             .iter()
-            .find(|code| code.hash == code_hash)
+            .find(|code| code.constructors.contains(&input))
             .map(|code| Account::with_contract(salt, code))?;
-
         if self.accounts.contains(&account) {
             return Some(Err(Error::Trap(TrapCode::UnreachableCodeReached.into())));
         }
-
         self.accounts.push(account);
         self.call("deploy", self.accounts.len() - 1, input, value)
     }
@@ -335,7 +334,6 @@ fn read_len(mem: &[u8], ptr: u32) -> usize {
 }
 
 fn write_buf(mem: &mut [u8], ptr: u32, buf: &[u8]) {
-    println!("mem: {:?}, prt: {}", mem[ptr as usize ..(ptr+32) as usize].to_vec(), ptr);
     mem[ptr as usize..ptr as usize + buf.len()].copy_from_slice(buf);
 }
 
@@ -348,7 +346,7 @@ fn read_value(mem: &[u8], ptr: u32) -> u128 {
 }
 
 fn read_account(mem: &[u8], ptr: u32) -> Address {
-    Address::try_from(&mem[ptr as usize..(ptr + 32) as usize]).unwrap()
+    Address::try_from(&mem[ptr as usize..(ptr + 20) as usize]).unwrap()
 }
 
 fn read_hash(mem: &[u8], ptr: u32) -> Hash {
@@ -363,8 +361,6 @@ impl Runtime {
     #[seal(0)]
     fn input(dest_ptr: u32, len_ptr: u32) -> Result<(), Trap> {
         let data = vm.input.as_ref().expect("input was forwarded");
-        println!("data len: {}", data.len());
-        println!("Read len: {}", read_len(mem, len_ptr));
         assert!(read_len(mem, len_ptr) >= data.len());
         println!("seal_input: {}", hex::encode(data));
 
@@ -483,6 +479,88 @@ impl Runtime {
         Ok(())
     }
 
+    #[env]
+    fn _evm_call(
+        gas: u64,
+        address: u32,
+        value: u32,
+        input_offset: u32,
+        input_length: u32,
+        return_offset: u32,
+        return_length: u32,
+        dest: u32
+    ) -> Result<(), Trap> {
+        let input = read_buf(mem, input_offset, input_length);
+        let value = read_value(mem, value);
+        let address = read_account(mem, address);
+
+        let callee = vm
+            .accounts
+            .iter()
+            .enumerate()
+            .find(|(_, account)| account.address == address)
+            .map(|(index, _)| index).expect("Contract not found");
+
+        assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
+        let ((ret, data), state) = match vm.call("call", callee, input, value) {
+            Some(Ok(state)) => ((state.data().output.as_data()), state),
+            _ => panic!("Failed while call contract"),
+        };
+
+        if return_length != u32::MAX {
+            assert!(read_len(mem, return_length) >= data.len());
+            write_buf(mem, return_offset, &data);
+            write_buf(mem, return_length, &(data.len() as u32).to_le_bytes());
+        }
+
+        if ret == 0 {
+            vm.accept_state(state.into_data(), value);
+            mem[dest as usize] = true as u8;
+            //set dest to true
+        }
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_delegatecall(
+        gas: u64,
+        address: u32,
+        input_offset: u32,
+        input_length: u32,
+        return_offset: u32,
+        return_length: u32,
+        dest: u32
+    ) -> Result<(), Trap> {
+        let input = read_buf(mem, input_offset, input_length);
+        let address = read_account(mem, address);
+
+        let callee = vm
+            .accounts
+            .iter()
+            .enumerate()
+            .find(|(_, account)| account.address == address)
+            .map(|(index, _)| index).expect("Contract not found");
+
+        let ((ret, data), state) = match vm.call("call", callee, input, 0) {
+            Some(Ok(state)) => ((state.data().output.as_data()), state),
+            _ => panic!("Failed while call contract"),
+        };
+
+        if return_length != u32::MAX {
+            assert!(read_len(mem, return_length) >= data.len());
+            write_buf(mem, return_offset, &data);
+            write_buf(mem, return_length, &(data.len() as u32).to_le_bytes());
+        }
+
+        if ret == 0 {
+            mem[dest as usize] = true as u8;
+            //set dest to true
+        }
+
+        Ok(())
+    }
+
     #[seal(1)]
     fn seal_call(
         flags: u32,
@@ -503,7 +581,7 @@ impl Runtime {
             vm.input.take().unwrap()
         } else if CallFlags::CloneInput.set(flags) {
             if vm.input.is_none() {
-                return Ok(1);
+                return Ok(2);
             }
             vm.input.as_ref().unwrap().clone()
         } else {
@@ -511,6 +589,7 @@ impl Runtime {
         };
         let value = read_value(mem, value_ptr);
         let callee_address = read_account(mem, callee_ptr);
+
 
         let callee = match vm
             .accounts
@@ -524,7 +603,7 @@ impl Runtime {
         };
 
         if vm.called_accounts.contains(&callee) && !CallFlags::AllowReentry.set(flags) {
-            return Ok(1);
+            return Ok(3);
         }
 
         if value > vm.accounts[vm.account].value {
@@ -533,7 +612,7 @@ impl Runtime {
 
         let ((ret, data), state) = match vm.call("call", callee, input, value) {
             Some(Ok(state)) => ((state.data().output.as_data()), state),
-            Some(Err(_)) => return Ok(1), // ReturnCode::CalleeTrapped
+            Some(Err(_)) => return Ok(4), // ReturnCode::CalleeTrapped
             None => return Ok(8),
         };
 
@@ -565,50 +644,44 @@ impl Runtime {
         Ok(())
     }
 
-    #[seal(1)]
-    fn instantiate(
-        code_hash_ptr: u32,
-        _gas: u64,
-        value_ptr: u32,
-        input_data_ptr: u32,
-        input_data_len: u32,
-        address_ptr: u32,
-        address_len_ptr: u32,
-        output_ptr: u32,
-        output_len_ptr: u32,
-        salt_ptr: u32,
-        salt_len: u32,
-    ) -> Result<u32, Trap> {
-        let code_hash = read_hash(mem, code_hash_ptr);
-        let salt = read_buf(mem, salt_ptr, salt_len);
-        let input = read_buf(mem, input_data_ptr, input_data_len);
-        let value = read_value(mem, value_ptr);
+    #[env]
+    fn _evm_create2(
+        value: u32,
+        constructor_offset: u32,
+        constructor_length: u32,
+        salt: u32,
+        dest: u32,
+    ) -> Result<(), Trap> {
+        let input = read_buf(mem, constructor_offset, constructor_length);
+        let salt = read_buf(mem, salt, 32);
+        let value = read_value(mem, value);
 
-        if value > vm.accounts[vm.account].value {
-            return Ok(5); // ReturnCode::TransferFailed
-        }
+        assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
 
-        let ((flags, data), state) = match vm.deploy(code_hash, value, &salt, input) {
-            Some(Ok(state)) => ((state.data().output.as_data()), state),
-            Some(Err(_)) => return Ok(1), // ReturnCode::CalleeTrapped
-            None => return Ok(7),         // ReturnCode::CodeNotFound
-        };
-
-        if output_len_ptr != u32::MAX {
-            write_buf(mem, output_ptr, &data);
-            write_buf(mem, output_len_ptr, &(data.len() as u32).to_le_bytes());
-        }
+        let state = vm.deploy(value, &salt, input).expect("CodeNotFound").expect("CalleeTrapped");
 
         let address = state.data().accounts.last().unwrap().address;
-        write_buf(mem, address_ptr, &address);
-        write_buf(mem, address_len_ptr, &(address.len() as u32).to_le_bytes());
+        write_buf(mem, dest, &address);
 
-        if flags == 0 {
-            vm.accept_state(state.into_data(), value);
-        }
-
-        Ok(flags)
+        Ok(())
     }
+
+    #[env]
+    fn _evm_create(
+        value: u32,
+        bytecode_offset: u32,
+        bytecode_length: u32,
+    ) -> Result<(), Trap> {
+        let input = read_buf(mem, bytecode_offset, bytecode_length);
+        let value = read_value(mem, value);
+
+        assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
+
+        vm.deploy(value, &[], input).expect("CodeNotFound").expect("CalleeTrapped");
+
+        Ok(())
+    }
+
 
     #[seal(0)]
     fn transfer(

@@ -262,6 +262,10 @@ impl WazmTarget {
         external!("_evm_gas", void_type, u64_ptr);
         external!("_evm_caller", void_type, u8_ptr);
         external!("_evm_callvalue", void_type, u64_ptr);
+        external!("_evm_create2", void_type, u8_ptr, u8_ptr, u32_val, u8_ptr, u8_ptr);
+        external!("_evm_create", void_type, u8_ptr, u8_ptr, u32_val);
+        external!("_evm_call", void_type, u64_val, u8_ptr, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
+        external!("_evm_return", void_type, u8_ptr, u8_ptr, u32_val);
     }
 
     /// Emits the "deploy" function if `init` is `Some`, otherwise emits the "call" function.

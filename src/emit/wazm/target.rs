@@ -719,7 +719,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         emit_context!(binary);
 
         call!(
-            "seal_return",
+            "_evm_return",
             &[
                 i32_zero!().into(),
                 byte_ptr!().const_zero().into(),
@@ -827,14 +827,18 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let code = created_contract.emit(ns, binary.options);
 
-        let (scratch_buf, scratch_len) = scratch_buf!();
+        let code = binary.emit_global_string(
+            &format!("contract_{}_code", created_contract.name),
+            &code,
+            true,
+        );
 
         // salt
         let salt_buf =
             binary.build_alloca(function, binary.context.i8_type().array_type(32), "salt");
-        let salt_len = i32_const!(32);
 
-        let salt = contract_args.salt.unwrap_or_else(|| {
+        // let salt = contract_args.salt;
+        let salt = Some(contract_args.salt.unwrap_or_else(|| {
             let nonce = call!("instantiation_nonce", &[], "instantiation_nonce_ext")
                 .try_as_basic_value()
                 .left()
@@ -845,8 +849,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
             binary
                 .builder
                 .build_int_z_extend_or_bit_cast(nonce, i256_t, "instantiation_nonce")
-        });
-        binary.builder.build_store(salt_buf, salt);
+        }));
 
         let encoded_args = binary.vector_bytes(encoded_args);
 
@@ -858,80 +861,31 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         if let Some(value) = contract_args.value {
             binary.builder.build_store(value_ptr, value);
         } else {
-            let scratch_len = binary.scratch_len.unwrap().as_pointer_value();
-
-            binary
-                .builder
-                .build_store(scratch_len, i32_const!(ns.value_length as u64));
-
-            binary.builder.build_store(value_ptr, binary.context.i128_type().const_int(500, false));
+            binary.builder.build_store(value_ptr, binary.context.i128_type().const_zero())
         }
 
-        // code hash
-        let codehash = binary.emit_global_string(
-            &format!("binary_{}_codehash", created_contract.name),
-            blake2_rfc::blake2b::blake2b(32, &[], &code).as_bytes(),
-            true,
-        );
-
-        let address_len_ptr = binary
-            .builder
-            .build_alloca(binary.context.i32_type(), "address_len_ptr");
-
-        binary
-            .builder
-            .build_store(address_len_ptr, i32_const!(ns.address_length as u64 * 32));
-
-        binary
-            .builder
-            .build_store(scratch_len, i32_const!(SCRATCH_SIZE as u64 * 32));
-
-        let ret = call!(
-            "instantiate",
-            &[
-                codehash.into(),
-                contract_args.gas.unwrap().into(),
-                value_ptr.into(),
-                encoded_args.into(),
-                encoded_args_len.into(),
-                address.into(),
-                address_len_ptr.into(),
-                scratch_buf.into(),
-                scratch_len.into(),
-                salt_buf.into(),
-                salt_len.into(),
-            ]
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-        log_return_code(binary, "seal_instantiate", ret);
-
-        let is_success =
-            binary
-                .builder
-                .build_int_compare(IntPredicate::EQ, ret, i32_zero!(), "success");
-
-        if let Some(success) = success {
-            // we're in a try statement. This means:
-            // return success or not in success variable; do not abort execution
-            *success = is_success.into();
-        } else {
-            let success_block = binary.context.append_basic_block(function, "success");
-            let bail_block = binary.context.append_basic_block(function, "bail");
-
-            binary
-                .builder
-                .build_conditional_branch(is_success, success_block, bail_block);
-
-            binary.builder.position_at_end(bail_block);
-
-            binary.log_runtime_error(self, "contract creation failed".to_string(), Some(loc), ns);
-            self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
-
-            binary.builder.position_at_end(success_block);
+        if let Some(salt) = salt {
+            binary.builder.build_store(salt_buf, salt);
+            call!(
+                "_evm_create2",
+                &[
+                    value_ptr.into(),
+                    encoded_args.into(),
+                    encoded_args_len.into(),
+                    salt_buf.into(),
+                    address.into(),
+                ]
+            );
+        }
+        else {
+            call!(
+                "_evm_create",
+                &[
+                    value_ptr.into(),
+                    encoded_args.into(),
+                    encoded_args_len.into(),
+                ]
+            );
         }
     }
 
@@ -956,8 +910,12 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
             .builder
             .build_store(scratch_len, i32_const!(SCRATCH_SIZE as u64));
 
+        let dest_ptr = binary
+            .builder
+            .build_alloca(binary.context.custom_width_int_type(8), "dest");
+
         // do the actual call
-        let ret = match call_type {
+        match call_type {
             ast::CallTy::Regular => {
                 let value_ptr = binary
                     .builder
@@ -965,25 +923,20 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
                 binary
                     .builder
                     .build_store(value_ptr, contract_args.value.unwrap());
-                let ret = call!(
-                    "seal_call",
+                call!(
+                    "_evm_call",
                     &[
-                        contract_args.flags.unwrap_or(i32_zero!()).into(),
-                        address.unwrap().into(),
                         contract_args.gas.unwrap().into(),
+                        address.unwrap().into(),
                         value_ptr.into(),
                         payload.into(),
                         payload_len.into(),
                         scratch_buf.into(),
                         scratch_len.into(),
+                        dest_ptr.into(),
                     ]
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                log_return_code(binary, "seal_call", ret);
-                ret
+                );
+                // log_return_code(binary, "seal_call", ret);
             }
             ast::CallTy::Delegate => {
                 // delegate_call asks for a code hash instead of an address
@@ -1038,21 +991,22 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
                 binary.builder.position_at_end(call_block);
                 let delegate_call_ret = call!(
-                    "delegate_call",
+                    "_evm_delegatecall",
                     &[
-                        contract_args.flags.unwrap_or(i32_zero!()).into(),
-                        code_hash_out_ptr.into(),
+                        contract_args.gas.unwrap().into(),
+                        address.unwrap().into(),
                         payload.into(),
                         payload_len.into(),
                         scratch_buf.into(),
                         scratch_len.into(),
+                        dest_ptr.into(),
                     ]
                 )
                 .try_as_basic_value()
                 .left()
                 .unwrap()
                 .into_int_value();
-                log_return_code(binary, "seal_delegate_call", delegate_call_ret);
+                // log_return_code(binary, "seal_delegate_call", delegate_call_ret);
                 binary.builder.build_unconditional_branch(done_block);
 
                 binary.builder.position_at_end(done_block);
@@ -1060,35 +1014,36 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
                 let ret = binary.builder.build_phi(ty, "storage_res");
                 ret.add_incoming(&[(&code_hash_ret, not_found_block), (&ty.const_zero(), entry)]);
                 ret.add_incoming(&[(&delegate_call_ret, call_block), (&ty.const_zero(), entry)]);
-                ret.as_basic_value().into_int_value()
             }
             ast::CallTy::Static => unreachable!("sema does not allow this"),
         };
 
-        let is_success =
-            binary
-                .builder
-                .build_int_compare(IntPredicate::EQ, ret, i32_zero!(), "success");
+        // let is_success =
+        //     binary
+        //         .builder
+        //         .build_int_compare(IntPredicate::EQ, ret, i32_zero!(), "success");
 
-        if let Some(success) = success {
-            // we're in a try statement. This means:
-            // do not abort execution; return success or not in success variable
-            *success = is_success.into();
-        } else {
-            let success_block = binary.context.append_basic_block(function, "success");
-            let bail_block = binary.context.append_basic_block(function, "bail");
-
-            binary
-                .builder
-                .build_conditional_branch(is_success, success_block, bail_block);
-
-            binary.builder.position_at_end(bail_block);
-
-            binary.log_runtime_error(self, "external call failed".to_string(), Some(loc), ns);
-            self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
-
-            binary.builder.position_at_end(success_block);
-        }
+        // if let Some(success) = success {
+        //     println!("Success");
+        //     // we're in a try statement. This means:
+        //     // do not abort execution; return success or not in success variable
+        //     *success = is_success.into();
+        // } else {
+        //     println!("Not success");
+        //     let success_block = binary.context.append_basic_block(function, "success");
+        //     let bail_block = binary.context.append_basic_block(function, "bail");
+        //
+        //     binary
+        //         .builder
+        //         .build_conditional_branch(is_success, success_block, bail_block);
+        //
+        //     binary.builder.position_at_end(bail_block);
+        //
+        //     binary.log_runtime_error(self, "external call failed".to_string(), Some(loc), ns);
+        //     self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
+        //
+        //     binary.builder.position_at_end(success_block);
+        // }
     }
 
     /// Send value to address
