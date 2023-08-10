@@ -34,7 +34,6 @@ contract superior {
 
 contract inferior {
 	function test1() public {
-		print("Baa!");
 	}
 
 	function test2(uint64 x) public returns (uint64) {

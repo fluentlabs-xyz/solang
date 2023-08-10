@@ -52,7 +52,7 @@ fn emit() {
     let mut runtime = build_solidity_for_wazm(
         r##"
         contract a {
-            event foo(bool,uint32,int64 indexed i);
+            event foo(bool,uint32 s,int64 indexed i);
             event bar(uint32,uint64,string indexed s);
             function emit_event() public {
                 emit foo(true, 102, 1);
@@ -117,7 +117,7 @@ fn event_imported() {
         .to_string(),
     );
 
-    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::default_polkadot());
+    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::WAZM);
 
     assert!(!ns.diagnostics.any_errors());
 
@@ -147,7 +147,7 @@ fn event_imported() {
         .to_string(),
     );
 
-    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::default_polkadot());
+    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::WAZM);
 
     assert!(!ns.diagnostics.any_errors());
 
@@ -177,7 +177,7 @@ fn event_imported() {
         .to_string(),
     );
 
-    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::default_polkadot());
+    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::WAZM);
 
     assert!(!ns.diagnostics.any_errors());
 
@@ -205,7 +205,7 @@ fn event_imported() {
         .to_string(),
     );
 
-    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::default_polkadot());
+    let ns = solang::parse_and_resolve(OsStr::new("a.sol"), &mut cache, Target::WAZM);
 
     assert!(!ns.diagnostics.any_errors());
 }
