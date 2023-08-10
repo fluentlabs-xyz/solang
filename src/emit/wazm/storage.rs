@@ -4,7 +4,7 @@ use crate::emit::binary::Binary;
 use crate::emit::wazm::{log_return_code};
 use crate::emit::storage::StorageSlot;
 use crate::emit::TargetRuntime;
-use crate::emit_context;
+use crate::emit_wazm_context;
 use crate::sema::ast::{ArrayLength, Namespace, Type};
 use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::{ArrayValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
@@ -21,7 +21,7 @@ impl StorageSlot for WazmTarget {
         dest: PointerValue,
         dest_ty: BasicTypeEnum,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let dest_size = if dest_ty.is_array_type() {
             dest_ty
@@ -52,7 +52,7 @@ impl StorageSlot for WazmTarget {
         slot: PointerValue<'a>,
         ns: &Namespace,
     ) -> ArrayValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let (scratch_buf, scratch_len) = scratch_buf!();
 
@@ -62,9 +62,7 @@ impl StorageSlot for WazmTarget {
 
         let exists = seal_get_storage!(
             slot.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -91,7 +89,7 @@ impl StorageSlot for WazmTarget {
     }
 
     fn storage_delete_single_slot(&self, binary: &Binary, slot: PointerValue) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let ret = call!("clear_storage", &[slot.into(), i32_const!(32).into()])
             .try_as_basic_value()
@@ -111,7 +109,7 @@ impl StorageSlot for WazmTarget {
         function: FunctionValue,
         ns: &Namespace,
     ) -> BasicValueEnum<'a> {
-        emit_context!(bin);
+        emit_wazm_context!(bin);
 
         match ty {
             Type::Ref(ty) => self.storage_load_slot(bin, ty, slot, slot_ptr, function, ns),

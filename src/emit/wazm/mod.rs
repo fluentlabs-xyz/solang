@@ -6,7 +6,6 @@ use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
 use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::AddressSpace;
-use crate::emit_context;
 
 use crate::codegen::dispatch::polkadot::DispatchType;
 use crate::emit::functions::{emit_functions, emit_initializer};
@@ -18,6 +17,79 @@ pub(super) mod target;
 // When using the seal api, we use our own scratch buffer.
 const SCRATCH_SIZE: u32 = 32 * 1024;
 
+
+#[macro_export]
+macro_rules! emit_wazm_context {
+    ($binary:expr) => {
+        #[allow(unused_macros)]
+        macro_rules! byte_ptr {
+            () => {
+                $binary.context.i8_type().ptr_type(AddressSpace::default())
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! i32_const {
+            ($val:expr) => {
+                $binary.context.i32_type().const_int($val, false)
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! i32_zero {
+            () => {
+                $binary.context.i32_type().const_zero()
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! call {
+            ($name:expr, $args:expr) => {
+                $binary
+                    .builder
+                    .build_call($binary.module.get_function($name).unwrap(), $args, "")
+            };
+            ($name:expr, $args:expr, $call_name:literal) => {
+                $binary.builder.build_call(
+                    $binary.module.get_function($name).unwrap(),
+                    $args,
+                    $call_name,
+                )
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! seal_get_storage {
+            ($key_ptr:expr, $value_ptr:expr,) => {
+                call!("_evm_sload", &[$key_ptr, $value_ptr]).try_as_basic_value()
+                    .right()
+                    .map(|_| i32_const!(0))
+                    .unwrap()
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! seal_set_storage {
+            ($key_ptr:expr, $key_len:expr, $value_ptr:expr, $value_len:expr) => {
+                call!("set_storage", &[$key_ptr, $key_len, $value_ptr, $value_len])
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_int_value()
+            };
+        }
+
+        #[allow(unused_macros)]
+        macro_rules! scratch_buf {
+            () => {
+                (
+                    $binary.scratch.unwrap().as_pointer_value(),
+                    $binary.scratch_len.unwrap().as_pointer_value(),
+                )
+            };
+        }
+    };
+}
 
 pub struct WazmTarget;
 
@@ -259,13 +331,21 @@ impl WazmTarget {
         external!("_evm_timestamp", void_type, u64_ptr);
         external!("_evm_address", void_type, u8_ptr);
         external!("_evm_balance", void_type, u8_ptr, u8_ptr);
+        external!("_evm_sload", void_type, u8_ptr, u8_ptr);
         external!("_evm_gas", void_type, u64_ptr);
         external!("_evm_caller", void_type, u8_ptr);
         external!("_evm_callvalue", void_type, u64_ptr);
         external!("_evm_create2", void_type, u8_ptr, u8_ptr, u32_val, u8_ptr, u8_ptr);
         external!("_evm_create", void_type, u8_ptr, u8_ptr, u32_val);
         external!("_evm_call", void_type, u64_val, u8_ptr, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
-        external!("_evm_return", void_type, u8_ptr, u8_ptr, u32_val);
+        external!("_evm_return", void_type, u8_ptr, u32_val);
+        external!("_evm_delegatecall", void_type, u64_val, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
+        external!("_evm_keccak256", void_type, u8_ptr, u32_val, u8_ptr);
+        external!("_evm_log0", void_type, u8_ptr, u32_val);
+        external!("_evm_log1", void_type, u8_ptr, u32_val, u8_ptr);
+        external!("_evm_log2", void_type, u8_ptr, u32_val, u8_ptr, u8_ptr);
+        external!("_evm_log3", void_type, u8_ptr, u32_val, u8_ptr, u8_ptr, u8_ptr);
+        external!("_evm_log4", void_type, u8_ptr, u32_val, u8_ptr, u8_ptr, u8_ptr, u8_ptr);
     }
 
     /// Emits the "deploy" function if `init` is `Some`, otherwise emits the "call" function.
@@ -301,7 +381,7 @@ fn log_return_code(binary: &Binary, api: &'static str, code: IntValue) {
         return;
     }
 
-    emit_context!(binary);
+    emit_wazm_context!(binary);
 
     let fmt = format!("call: {api}=");
     let msg = fmt.as_bytes();

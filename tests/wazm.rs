@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+extern crate core;
+
 /// Mock runtime for the contracts pallet.
 use blake2_rfc::blake2b::blake2b;
 use contract_metadata::ContractMetadata;
@@ -377,6 +379,31 @@ impl Runtime {
         Err(HostReturn::Data(flags, output).into())
     }
 
+
+    #[env]
+    fn _evm_sload(slot: u32, dest: u32) -> Result<(), Trap>{
+        let key = StorageKey::try_from(read_buf(mem, slot, 32))
+            .expect("storage key size must be 32 bytes");
+        println!("Keys: {:?}", key);
+        println!("Storages: {:?}", vm.contract().storage);
+        let default_value = vec![0;32];
+        let value = vm.contract().storage.get(&key).unwrap_or(&default_value);
+
+        println!("_evm_sload: {}={:x?}", hex::encode(key), value);
+
+        write_buf(mem, dest, value);
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_return(data_ptr: u32, data_len: u32) -> Result<(), Trap> {
+        println!("Evm return");
+        let output = read_buf(mem, data_ptr, data_len);
+        Err(HostReturn::Data(0, output).into())
+    }
+
+
     #[seal(0)]
     fn value_transferred(dest_ptr: u32, out_len_ptr: u32) -> Result<(), Trap> {
         let value = vm.transferred_value.to_le_bytes();
@@ -395,6 +422,7 @@ impl Runtime {
         let msg = std::str::from_utf8(&buf).expect("seal_debug_message: Invalid UFT8");
         println!("seal_debug_message: {msg}");
         vm.debug_buffer.push_str(msg);
+
         Ok(0)
     }
 
@@ -449,6 +477,15 @@ impl Runtime {
         }
     }
 
+    #[env]
+    fn _evm_keccak256(input_ptr: u32, input_len: u32, output_ptr: u32) -> Result<(), Trap> {
+        let mut hasher = Keccak::v256();
+        hasher.update(&read_buf(mem, input_ptr, input_len));
+        hasher.finalize(&mut mem[output_ptr as usize..(output_ptr + 32) as usize]);
+        Ok(())
+    }
+
+
     #[seal(0)]
     fn hash_keccak_256(input_ptr: u32, input_len: u32, output_ptr: u32) -> Result<(), Trap> {
         let mut hasher = Keccak::v256();
@@ -493,6 +530,8 @@ impl Runtime {
         let input = read_buf(mem, input_offset, input_length);
         let value = read_value(mem, value);
         let address = read_account(mem, address);
+
+        println!("Evm Call");
 
         let callee = vm
             .accounts
@@ -879,6 +918,126 @@ impl Runtime {
         }
 
         Err(HostReturn::Terminate.into())
+    }
+
+    #[env]
+    fn _evm_log0(
+        data_offset: u32,
+        data_length: u32,
+    ) -> Result<(), Trap> {
+
+        let data = read_buf(mem, data_offset, data_length);
+
+        println!(
+            "_evm_log0 data: {}",
+            hex::encode(&data),
+        );
+
+        vm.events.push(Event { data, topics: vec![] });
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_log1(
+        data_offset: u32,
+        data_length: u32,
+        topic0: u32,
+    ) -> Result<(), Trap> {
+
+        let data = read_buf(mem, data_offset, data_length);
+        let topic = Hash::decode(&mut read_buf(mem, topic0, 32).as_slice()).unwrap();
+
+        println!(
+            "_evm_log1 data: {:x?} topic: {:?}",
+            hex::encode(&data),
+            topic
+        );
+        vm.events.push(Event { data, topics: vec![topic] });
+
+        println!("Events: {:?}", vm.events.len());
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_log2(
+        data_offset: u32,
+        data_length: u32,
+        topic0: u32,
+        topic1: u32,
+    ) -> Result<(), Trap> {
+        let data = read_buf(mem, data_offset, data_length);
+        let topic0 = Hash::decode(&mut read_buf(mem, topic0, 32).as_slice()).unwrap();
+        let topic1 = Hash::decode(&mut read_buf(mem, topic1, 32).as_slice()).unwrap();
+
+        println!(
+            "_evm_log2 data: {:x?} topic0: {:x?}, topic1: {:x?}",
+            hex::encode(&data),
+            topic0,
+            topic1,
+        );
+        vm.events.push(Event { data, topics: vec![topic0, topic1] });
+
+        println!("Events: {:?}", vm.events.len());
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_log3(
+        data_offset: u32,
+        data_length: u32,
+        topic0: u32,
+        topic1: u32,
+        topic2: u32,
+    ) -> Result<(), Trap> {
+        let data = read_buf(mem, data_offset, data_length);
+        let topic0 = Hash::decode(&mut read_buf(mem, topic0, 32).as_slice()).unwrap();
+        let topic1 = Hash::decode(&mut read_buf(mem, topic1, 32).as_slice()).unwrap();
+        let topic2 = Hash::decode(&mut read_buf(mem, topic2, 32).as_slice()).unwrap();
+
+        println!(
+            "_evm_log3 data: {:x?} topic0: {:?}, topic1: {:?}, topic2: {:?}",
+            hex::encode(&data),
+            topic0,
+            topic1,
+            topic2,
+        );
+        vm.events.push(Event { data, topics: vec![topic0, topic1, topic2] });
+
+        println!("Events: {:?}", vm.events.len());
+
+        Ok(())
+    }
+
+    #[env]
+    fn _evm_log4(
+        data_offset: u32,
+        data_length: u32,
+        topic0: u32,
+        topic1: u32,
+        topic2: u32,
+        topic3: u32,
+    ) -> Result<(), Trap> {
+        let data = read_buf(mem, data_offset, data_length);
+        let topic0 = Hash::decode(&mut read_buf(mem, topic0, 32).as_slice()).unwrap();
+        let topic1 = Hash::decode(&mut read_buf(mem, topic1, 32).as_slice()).unwrap();
+        let topic2 = Hash::decode(&mut read_buf(mem, topic2, 32).as_slice()).unwrap();
+        let topic3 = Hash::decode(&mut read_buf(mem, topic3, 32).as_slice()).unwrap();
+
+        println!(
+            "_evm_log4 data: {:x?} topic0: {:?}, topic1: {:?}, topic2: {:?}, topic3: {:?}",
+            hex::encode(&data),
+            topic0,
+            topic1,
+            topic2,
+            topic3,
+        );
+        vm.events.push(Event { data, topics: vec![topic0, topic1, topic2, topic3] });
+
+        println!("Events: {:?}", vm.events.len());
+
+        Ok(())
     }
 
     #[seal(0)]

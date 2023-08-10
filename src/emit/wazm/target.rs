@@ -8,7 +8,7 @@ use crate::emit::storage::StorageSlot;
 use crate::emit::{ContractArgs, TargetRuntime, Variable};
 use crate::sema::ast;
 use crate::sema::ast::{Function, Namespace, Type};
-use crate::{codegen, emit_context};
+use crate::{codegen, emit_wazm_context};
 use inkwell::types::{BasicType, BasicTypeEnum, IntType};
 use inkwell::values::BasicValue;
 use inkwell::values::AsValueRef;
@@ -28,7 +28,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         dest: PointerValue,
         dest_ty: BasicTypeEnum,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let ret = seal_set_storage!(
             slot.into(),
@@ -51,7 +51,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         slot: PointerValue<'a>,
         ns: &ast::Namespace,
     ) -> PointerValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         // This is the size of the external function struct
         let len = ns.address_length + 4;
@@ -103,7 +103,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         slot: PointerValue<'a>,
         dest: BasicValueEnum<'a>,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let len = binary.vector_len(dest);
         let data = binary.vector_bytes(dest);
@@ -153,7 +153,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         slot: PointerValue<'a>,
         ty: IntType<'a>,
     ) -> IntValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let (scratch_buf, scratch_len) = scratch_buf!();
         let ty_len = ty.size_of().const_cast(binary.context.i32_type(), false);
@@ -161,9 +161,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage: ", exists);
@@ -208,7 +206,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         function: FunctionValue,
         slot: PointerValue<'a>,
     ) -> PointerValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let (scratch_buf, scratch_len) = scratch_buf!();
 
@@ -218,9 +216,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage: ", exists);
@@ -298,7 +294,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         loc: Loc,
         ns: &Namespace,
     ) -> IntValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let slot_ptr = binary.builder.build_alloca(slot.get_type(), "slot");
         binary.builder.build_store(slot_ptr, slot);
@@ -311,9 +307,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot_ptr.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -387,7 +381,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         ns: &Namespace,
         loc: Loc,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let slot_ptr = binary.builder.build_alloca(slot.get_type(), "slot");
         binary.builder.build_store(slot_ptr, slot);
@@ -400,9 +394,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot_ptr.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -482,7 +474,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         val: Option<BasicValueEnum<'a>>,
         _ns: &ast::Namespace,
     ) -> BasicValueEnum<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let val = val.unwrap();
 
@@ -499,9 +491,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot_ptr.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -565,7 +555,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         ns: &ast::Namespace,
         loc: Loc,
     ) -> Option<BasicValueEnum<'a>> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let slot_ptr = binary.builder.build_alloca(slot.get_type(), "slot");
         binary.builder.build_store(slot_ptr, slot);
@@ -578,9 +568,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot_ptr.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -675,7 +663,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         _ty: &ast::Type,
         _ns: &ast::Namespace,
     ) -> IntValue<'a> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let slot_ptr = binary.builder.build_alloca(slot.get_type(), "slot");
         binary.builder.build_store(slot_ptr, slot);
@@ -688,9 +676,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
         let exists = seal_get_storage!(
             slot_ptr.into(),
-            i32_const!(32).into(),
             scratch_buf.into(),
-            scratch_len.into()
         );
 
         log_return_code(binary, "seal_get_storage", exists);
@@ -716,12 +702,11 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
     }
 
     fn return_empty_abi(&self, binary: &Binary) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         call!(
             "_evm_return",
             &[
-                i32_zero!().into(),
                 byte_ptr!().const_zero().into(),
                 i32_zero!().into()
             ]
@@ -731,7 +716,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
     }
 
     fn return_code<'b>(&self, binary: &'b Binary, _ret: IntValue<'b>) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         // we can't return specific errors
         self.assert_failure(binary, byte_ptr!().const_zero(), i32_zero!());
@@ -746,17 +731,17 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         dest: PointerValue,
         _ns: &ast::Namespace,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
-        call!("hash_keccak_256", &[src.into(), length.into(), dest.into()]);
+        call!("_evm_keccak256", &[src.into(), length.into(), dest.into()]);
     }
 
     fn return_abi<'b>(&self, binary: &'b Binary, data: PointerValue<'b>, length: IntValue) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         call!(
-            "seal_return",
-            &[i32_zero!().into(), data.into(), length.into()]
+            "_evm_return",
+            &[data.into(), length.into()]
         );
 
         binary.builder.build_unreachable();
@@ -768,11 +753,11 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         data: PointerValue<'b>,
         data_len: BasicValueEnum<'b>,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         call!(
-            "seal_return",
-            &[i32_zero!().into(), data.into(), data_len.into()]
+            "_evm_return",
+            &[data.into(), data_len.into()]
         );
 
         binary
@@ -781,10 +766,9 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
     }
 
     fn assert_failure(&self, binary: &Binary, data: PointerValue, length: IntValue) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
-        let flags = i32_const!(1).into(); // First bit set means revert
-        call!("seal_return", &[flags, data.into(), length.into()]);
+        call!("_evm_return", &[data.into(), length.into()]);
 
         // Inserting an "unreachable" instruction signals to the LLVM optimizer
         // that any following code can not be reached.
@@ -797,7 +781,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
     }
 
     fn print(&self, binary: &Binary, string_ptr: PointerValue, string_len: IntValue) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let ret = call!("debug_message", &[string_ptr.into(), string_len.into()])
             .try_as_basic_value()
@@ -821,7 +805,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         ns: &ast::Namespace,
         loc: Loc,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let created_contract = &ns.contracts[contract_no];
 
@@ -838,6 +822,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
             binary.build_alloca(function, binary.context.i8_type().array_type(32), "salt");
 
         // let salt = contract_args.salt;
+        // TODO: Remove and test simple call
         let salt = Some(contract_args.salt.unwrap_or_else(|| {
             let nonce = call!("instantiation_nonce", &[], "instantiation_nonce_ext")
                 .try_as_basic_value()
@@ -861,7 +846,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         if let Some(value) = contract_args.value {
             binary.builder.build_store(value_ptr, value);
         } else {
-            binary.builder.build_store(value_ptr, binary.context.i128_type().const_zero())
+            binary.builder.build_store(value_ptr, binary.context.i128_type().const_zero());
         }
 
         if let Some(salt) = salt {
@@ -903,7 +888,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         ns: &ast::Namespace,
         loc: Loc,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let (scratch_buf, scratch_len) = scratch_buf!();
         binary
@@ -1057,7 +1042,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         ns: &ast::Namespace,
         loc: Loc,
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         // balance is a u128
         let value_ptr = binary
@@ -1109,7 +1094,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
     }
 
     fn return_data<'b>(&self, binary: &Binary<'b>, _function: FunctionValue) -> PointerValue<'b> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         // The `seal_call` syscall leaves the return data in the scratch buffer
         let (scratch_buf, scratch_len) = scratch_buf!();
@@ -1127,7 +1112,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
     /// Polkadot value is usually 128 bits
     fn value_transferred<'b>(&self, binary: &Binary<'b>, ns: &ast::Namespace) -> IntValue<'b> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let value = binary.builder.build_alloca(binary.value_type(ns), "value");
 
@@ -1153,7 +1138,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
     /// Terminate execution, destroy contract and send remaining funds to addr
     fn selfdestruct<'b>(&self, binary: &Binary<'b>, addr: ArrayValue<'b>, ns: &ast::Namespace) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let address = binary
             .builder
@@ -1177,7 +1162,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         input_len: IntValue<'b>,
         ns: &ast::Namespace,
     ) -> IntValue<'b> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let (fname, hashlen) = match hash {
             HashTy::Keccak256 => ("hash_keccak_256", 32),
@@ -1223,80 +1208,87 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         data: BasicValueEnum<'b>,
         topics: &[BasicValueEnum<'b>],
     ) {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         let topic_count = topics.len();
-        let topic_size = i32_const!(if topic_count > 0 {
-            32 * topic_count as u64 + 1
-        } else {
-            0
-        });
 
-        let topic_buf = if topic_count > 0 {
-            // the topic buffer is a vector of hashes.
-            let topic_buf =
-                binary
-                    .builder
-                    .build_array_alloca(binary.context.i8_type(), topic_size, "topic");
+        println!("Topic: count: {}", topic_count);
 
-            // a vector with scale encoding first has the length. Since we will never have more than
-            // 64 topics (we're limited to 4 at the moment), we can assume this is a single byte
-            binary.builder.build_store(
-                topic_buf,
-                binary
-                    .context
-                    .i8_type()
-                    .const_int(topic_count as u64 * 4, false),
-            );
-
-            let mut dest = unsafe {
-                binary.builder.build_gep(
-                    binary.context.i8_type(),
-                    topic_buf,
-                    &[i32_const!(1)],
-                    "dest",
-                )
-            };
-
+        let topics = topics.iter().map(|topic| {
+            let dest = binary
+                .builder
+                .build_array_alloca(binary.context.i8_type(), binary.context.i32_type().const_int(32, false), "topic");
             call!(
-                "__bzero8",
-                &[dest.into(), i32_const!(topic_count as u64 * 4).into()]
-            );
-
-            for topic in topics.iter() {
-                call!(
                     "__memcpy",
                     &[
                         dest.into(),
                         binary.vector_bytes(*topic).into(),
                         binary.vector_len(*topic).into(),
                     ]
+            );
+            dest
+        }).collect::<Vec<_>>();
+
+
+        match topic_count {
+            0 => {
+                call!(
+                    "_evm_log0",
+                    &[
+                        binary.vector_bytes(data).into(),
+                        binary.vector_len(data).into(),
+                    ]
                 );
-
-                dest = unsafe {
-                    binary.builder.build_gep(
-                        binary.context.i8_type(),
-                        dest,
-                        &[i32_const!(32)],
-                        "dest",
-                    )
-                };
             }
-
-            topic_buf
-        } else {
-            byte_ptr!().const_null()
-        };
-
-        call!(
-            "deposit_event",
-            &[
-                topic_buf.into(),
-                topic_size.into(),
-                binary.vector_bytes(data).into(),
-                binary.vector_len(data).into(),
-            ]
-        );
+            1 => {
+                call!(
+                    "_evm_log1",
+                    &[
+                        binary.vector_bytes(data).into(),
+                        binary.vector_len(data).into(),
+                        topics[0].into()
+                    ]
+                );
+            }
+            2 => {
+                call!(
+                    "_evm_log2",
+                    &[
+                        binary.vector_bytes(data).into(),
+                        binary.vector_len(data).into(),
+                        topics[0].into(),
+                        topics[1].into(),
+                    ]
+                );
+            }
+            3 => {
+                println!("Event 3");
+                call!(
+                    "_evm_log3",
+                    &[
+                        binary.vector_bytes(data).into(),
+                        binary.vector_len(data).into(),
+                        topics[0].into(),
+                        topics[1].into(),
+                        topics[2].into(),
+                    ]
+                );
+            }
+            4 => {
+                call!(
+                    "_evm_log4",
+                    &[
+                        binary.vector_bytes(data).into(),
+                        binary.vector_len(data).into(),
+                        topics[0].into(),
+                        topics[1].into(),
+                        topics[2].into(),
+                        topics[3].into(),
+                    ]
+                );
+            }
+            _ => ()
+        }
     }
 
     /// builtin expressions
@@ -1308,7 +1300,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         function: FunctionValue<'b>,
         ns: &ast::Namespace,
     ) -> BasicValueEnum<'b> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         macro_rules! get_seal_value {
             ($name:literal, $func:literal, $width:expr) => {{
@@ -1571,8 +1563,6 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
 
                 binary.builder.build_store(scratch_buf, address);
 
-                println!("Args: {:?}", args);
-                println!("bult in Address: {:?}", address);
                 binary
                     .builder
                     .build_store(scratch_len, i32_const!(ns.value_length as u64));
@@ -1643,7 +1633,7 @@ impl<'a> TargetRuntime<'a> for WazmTarget {
         _first_arg_type: BasicTypeEnum,
         ns: &Namespace,
     ) -> Option<BasicValueEnum<'a>> {
-        emit_context!(binary);
+        emit_wazm_context!(binary);
 
         match builtin_func.name.as_str() {
             "chain_extension" => {

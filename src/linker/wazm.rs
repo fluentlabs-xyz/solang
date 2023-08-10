@@ -108,7 +108,10 @@ fn generate_import_section(section: SectionLimited<Import>, module: &mut Module)
             | "seal_call" => "seal1",
             "_evm_gasprice" | "_evm_number" | "_evm_timestamp" | "_evm_address" | "_evm_balance" |
             "_evm_gas" | "_evm_caller" | "_evm_callvalue" | "_evm_create2" |  "_evm_create" |
-            "_evm_call" => "env",
+            "_evm_call" | "_evm_return" | "_evm_delegatecall" | "_evm_keccak256" |
+            "_evm_log0" | "_evm_log1" |"_evm_log2" |"_evm_log3" | "_evm_log4" |
+            "_evm_sload" => "env",
+
             _ => "seal0",
         };
         imports.import(module_name, import.name, import_type);
