@@ -2,7 +2,7 @@
 
 mod bpf;
 mod wasm;
-mod wazm;
+mod fluentbase;
 
 use crate::Target;
 use once_cell::sync::Lazy;
@@ -19,8 +19,8 @@ pub fn link(input: &[u8], name: &str, target: Target) -> Vec<u8> {
 
     if target == Target::Solana {
         bpf::link(input, name)
-    } else if target == Target::WAZM{
-        wazm::link(input, name)
+    } else if target == Target::FLUENTBASE{
+        fluentbase::link(input, name)
     } else {
         wasm::link(input, name)
     }

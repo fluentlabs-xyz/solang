@@ -14,7 +14,7 @@ use tempfile::tempdir;
 use wasm_opt::OptimizationOptions;
 
 use crate::codegen::{cfg::ReturnCode, error_msg_with_loc, Options};
-use crate::emit::{polkadot, TargetRuntime, wazm};
+use crate::emit::{polkadot, TargetRuntime, fluentbase};
 use crate::emit::{solana, BinaryOp, Generate};
 use crate::linker::link;
 use crate::Target;
@@ -78,7 +78,7 @@ impl<'a> Binary<'a> {
             }
             Target::Solana => solana::SolanaTarget::build(context, &std_lib, contract, ns, opt),
             Target::EVM => unimplemented!(),
-            Target::WAZM => wazm::WazmTarget::build(context, &std_lib, contract, ns, opt),
+            Target::FLUENTBASE => fluentbase::FluentbaseTarget::build(context, &std_lib, contract, ns, opt),
         }
     }
 

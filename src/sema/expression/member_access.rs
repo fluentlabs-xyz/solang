@@ -345,7 +345,7 @@ pub(super) fn member_access(
         },
         Type::Address(_) => {
             if id.name == "balance" {
-                if ns.target.is_polkadot() && ns.target.ne(&Target::WAZM){
+                if ns.target.is_polkadot() && ns.target.ne(&Target::FLUENTBASE){
                     let mut is_this = false;
 
                     if let Expression::Cast { expr: this, .. } = &expr {

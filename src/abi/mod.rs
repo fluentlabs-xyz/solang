@@ -17,7 +17,7 @@ pub fn generate_abi(
     version: &str,
 ) -> (String, &'static str) {
     match ns.target {
-        Target::Polkadot { .. } | Target::WAZM => {
+        Target::Polkadot { .. } | Target::FLUENTBASE => {
             if verbose {
                 eprintln!(
                     "info: Generating ink! metadata for contract {}",

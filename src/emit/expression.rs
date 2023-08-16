@@ -28,6 +28,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
     function: FunctionValue<'a>,
     ns: &Namespace,
 ) -> BasicValueEnum<'a> {
+    println!("Expression: {:?}", e);
     match e {
         Expression::FunctionArg { arg_no, .. } => function.get_nth_param(*arg_no as u32).unwrap(),
         Expression::BoolLiteral { value, .. } => bin

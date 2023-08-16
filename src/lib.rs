@@ -31,7 +31,7 @@ pub enum Target {
     },
     /// Ethereum EVM, see <https://ethereum.org/en/developers/docs/evm/>
     EVM,
-    WAZM,
+    FLUENTBASE,
 }
 
 impl fmt::Display for Target {
@@ -40,7 +40,7 @@ impl fmt::Display for Target {
             Target::Solana => write!(f, "Solana"),
             Target::Polkadot { .. } => write!(f, "Polkadot"),
             Target::EVM => write!(f, "EVM"),
-            Target::WAZM => write!(f, "WAZM"),
+            Target::FLUENTBASE => write!(f, "FLUENTBASE"),
         }
     }
 }
@@ -53,7 +53,7 @@ impl PartialEq for Target {
             Target::Solana => matches!(other, Target::Solana),
             Target::Polkadot { .. } => matches!(other, Target::Polkadot { .. }),
             Target::EVM => matches!(other, Target::EVM),
-            Target::WAZM => matches!(other, Target::WAZM),
+            Target::FLUENTBASE => matches!(other, Target::FLUENTBASE),
         }
     }
 }
@@ -61,7 +61,7 @@ impl PartialEq for Target {
 impl Target {
     /// Short-hand for checking for Polkadot target
     pub fn is_polkadot(&self) -> bool {
-        matches!(self, Target::Polkadot { .. } | Target::WAZM)
+        matches!(self, Target::Polkadot { .. } | Target::FLUENTBASE)
     }
 
     /// Create the target Polkadot with default parameters
@@ -78,7 +78,7 @@ impl Target {
             "solana" => Some(Target::Solana),
             "polkadot" => Some(Target::default_polkadot()),
             "evm" => Some(Target::EVM),
-            "wazm" => Some(Target::WAZM),
+            "fluentbase" => Some(Target::FLUENTBASE),
             _ => None,
         }
     }

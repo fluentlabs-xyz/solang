@@ -35,7 +35,7 @@ impl Namespace {
                 value_length,
             } => (address_length, value_length),
             Target::Solana => (32, 8),
-            Target::WAZM => (20, 8)
+            Target::FLUENTBASE => (20, 8)
         };
 
         let mut ns = Namespace {
@@ -63,7 +63,7 @@ impl Namespace {
 
         match target {
             Target::Solana => ns.add_solana_builtins(),
-            Target::Polkadot { .. } | Target::WAZM => ns.add_polkadot_builtins(),
+            Target::Polkadot { .. } | Target::FLUENTBASE => ns.add_polkadot_builtins(),
             _ => {}
         }
 
