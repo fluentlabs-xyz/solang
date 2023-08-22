@@ -1446,6 +1446,7 @@ fn alloc_size_from_storage() {
 
             function contfunc() public view returns (uint64[] memory) {
                 uint64[] memory values = new uint64[](length);
+
                 return values;
             }
         }"#,

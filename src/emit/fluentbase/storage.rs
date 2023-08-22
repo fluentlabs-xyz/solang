@@ -38,12 +38,12 @@ impl StorageSlot for FluentbaseTarget {
 
         let value = binary
             .builder
-            .build_array_alloca(binary.context.i8_type(), binary.context.i32_type().const_int(32, false), "topic");
+            .build_array_alloca(binary.context.i8_type(), binary.context.i32_type().const_int(32, false), "storage ");
         call!(
             "__memcpy",
             &[
-                dest.into(),
                 value.into(),
+                dest.into(),
                 dest_size.into()
             ]
         );

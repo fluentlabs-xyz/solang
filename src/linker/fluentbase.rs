@@ -110,7 +110,7 @@ fn generate_import_section(section: SectionLimited<Import>, module: &mut Module)
             "_evm_gas" | "_evm_caller" | "_evm_callvalue" | "_evm_create2" |  "_evm_create" |
             "_evm_call" | "_evm_return" | "_evm_delegatecall" | "_evm_keccak256" |
             "_evm_log0" | "_evm_log1" |"_evm_log2" |"_evm_log3" | "_evm_log4" |
-            "_evm_sload" | "_evm_sstore" => "env",
+            "_evm_sload" | "_evm_sstore" | "_evm_codecopy" | "_evm_revert" => "env",
 
             _ => "seal0",
         };

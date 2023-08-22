@@ -94,6 +94,7 @@ fn input_wrong_size() {
         }"##,
     );
 
+    runtime.function("test", b"ABCD".to_vec());
     runtime.function_expect_failure("test", b"A".to_vec());
 
     // the decoder does check if there is too much data

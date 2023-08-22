@@ -41,8 +41,8 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
         call!(
             "__memcpy",
             &[
-                dest.into(),
                 value.into(),
+                dest.into(),
                 dest_len.into(),
             ]
         );
@@ -139,8 +139,8 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
         call!(
             "__memcpy",
             &[
-                data.into(),
                 value.into(),
+                data.into(),
                 len.into(),
             ]
         );
@@ -798,7 +798,7 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
     fn assert_failure(&self, binary: &Binary, data: PointerValue, length: IntValue) {
         emit_fluentbase_context!(binary);
 
-        call!("_evm_return", &[data.into(), length.into()]);
+        call!("_evm_revert", &[data.into(), length.into()]);
 
         // Inserting an "unreachable" instruction signals to the LLVM optimizer
         // that any following code can not be reached.

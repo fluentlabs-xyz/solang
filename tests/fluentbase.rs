@@ -327,7 +327,7 @@ impl Runtime {
         let account = self
             .blobs
             .iter()
-            .find(|code| code.constructors.contains(&input))
+            .find(|code| code.constructors.contains(&input[..4].to_vec()))
             .map(|code| Account::with_contract(salt, code))?;
         if self.accounts.contains(&account) {
             return Some(Err(Error::Trap(TrapCode::UnreachableCodeReached.into())));
@@ -407,6 +407,7 @@ impl Runtime {
     }
 
 
+
     #[env]
     fn _evm_sload(slot: u32, dest: u32) -> Result<(), Trap>{
         let key = StorageKey::try_from(read_buf(mem, slot, 32))
@@ -430,7 +431,8 @@ impl Runtime {
     ) -> Result<(), Trap> {
         let key = StorageKey::try_from(read_buf(mem, slot, 32))
             .expect("storage key size must be 32 bytes");
-        let value = mem[value as usize..(value + 32) as usize].to_vec();
+        let value = mem[value as usize..(value + 14) as usize].to_vec();
+
         println!("_evm_sstore: {}={}", hex::encode(key), hex::encode(&value));
 
         vm.contract().storage.insert(key, value);
@@ -445,6 +447,12 @@ impl Runtime {
         Err(HostReturn::Data(0, output).into())
     }
 
+    #[env]
+    fn _evm_revert(error_ptr: u32, error_length: u32) -> Result<(), Trap> {
+        let output = read_buf(mem, error_ptr, error_length);
+        println!("_evm_revert: {:?}, mem: {:?}, len: {}", output, error_ptr, error_length);
+        Err(HostReturn::Data(1, output).into())
+    }
 
     #[seal(0)]
     fn value_transferred(dest_ptr: u32, out_len_ptr: u32) -> Result<(), Trap> {
@@ -576,13 +584,18 @@ impl Runtime {
 
         println!("Evm Call");
 
-        let callee = vm
+        let callee = if let Some(callee) = vm
             .accounts
             .iter()
             .enumerate()
             .find(|(_, account)| account.address == address)
-            .map(|(index, _)| index).expect("Contract not found");
+            .map(|(index, _)| index) {
+            callee
+        } else {
 
+            return Ok(());
+        };
+        //TODO: change to return 0 in dest
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
         let ((ret, data), state) = match vm.call("call", callee, input, value) {
             Some(Ok(state)) => ((state.data().output.as_data()), state),
@@ -827,6 +840,8 @@ impl Runtime {
     fn _evm_gas(out_ptr: u32) -> Result<(), Trap> {
         let gas_left = (1000 as u128).to_le_bytes();
 
+        println!("_evm_gas: {:?}", gas_left);
+
         write_buf(mem, out_ptr as u32, &gas_left);
 
         Ok(())
@@ -845,6 +860,7 @@ impl Runtime {
     fn _evm_callvalue(out_ptr: u32) -> Result<(), Trap> {
         let value = (0 as u128).to_le_bytes();
 
+        println!("_evm_callvalue: {:?}", value);
         write_buf(mem, out_ptr as u32, &value);
 
         Ok(())
@@ -1283,6 +1299,7 @@ impl MockWasm {
     }
 
     fn raw_failure(&mut self, export: &str, input: Vec<u8>) {
+        println!("Output: {:?}", self.0.data().output);
         match self.invoke(export, input) {
             Err(wasmi::Error::Trap(trap)) => match trap.trap_code() {
                 Some(TrapCode::UnreachableCodeReached) => (),

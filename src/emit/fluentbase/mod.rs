@@ -279,6 +279,7 @@ impl FluentbaseTarget {
         external!("_evm_create", void_type, u8_ptr, u8_ptr, u32_val);
         external!("_evm_call", void_type, u64_val, u8_ptr, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
         external!("_evm_return", void_type, u8_ptr, u32_val);
+        external!("_evm_revert", void_type, u8_ptr, u32_val);
         external!("_evm_delegatecall", void_type, u64_val, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
         external!("_evm_keccak256", void_type, u8_ptr, u32_val, u8_ptr);
         external!("_evm_log0", void_type, u8_ptr, u32_val);

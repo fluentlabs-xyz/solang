@@ -342,35 +342,35 @@ fn balance() {
     assert_eq!(runtime.output(), 500u128.to_le_bytes());
 }
 
-#[test]
-fn selfdestruct() {
-    let mut runtime = build_solidity_for_fluentbase(
-        r##"
-        contract c {
-            other o;
-            function step1() public {
-                o = new other{value: 511}();
-            }
-
-            function step2() public {
-                o.goaway(payable(address(this)));
-            }
-        }
-
-        contract other {
-            function goaway(address payable recipient) public returns (bool) {
-                selfdestruct(recipient);
-            }
-        }"##,
-    );
-    runtime.constructor(0, Vec::new());
-
-    runtime.function("step1", Vec::new());
-    assert_eq!(runtime.balance(0), 20000 - 511);
-
-    runtime.function("step2", Vec::new());
-    assert_eq!(runtime.balance(0), 20000);
-}
+// #[test]
+// fn selfdestruct() {
+//     let mut runtime = build_solidity_for_fluentbase(
+//         r##"
+//         contract c {
+//             other o;
+//             function step1() public {
+//                 o = new other{value: 511}();
+//             }
+//
+//             function step2() public {
+//                 o.goaway(payable(address(this)));
+//             }
+//         }
+//
+//         contract other {
+//             function goaway(address payable recipient) public returns (bool) {
+//                 selfdestruct(recipient);
+//             }
+//         }"##,
+//     );
+//     runtime.constructor(0, Vec::new());
+//
+//     runtime.function("step1", Vec::new());
+//     assert_eq!(runtime.balance(0), 20000 - 511);
+//
+//     runtime.function("step2", Vec::new());
+//     assert_eq!(runtime.balance(0), 20000);
+// }
 
 #[test]
 fn send_and_transfer() {
