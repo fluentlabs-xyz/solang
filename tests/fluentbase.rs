@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use std::{collections::HashMap, ffi::OsStr, fmt, fmt::Write};
 use std::ptr::write_bytes;
 use funty::Numeric;
+use itertools::Itertools;
 use libc::truncate;
 use tiny_keccak::{Hasher, Keccak};
 use wasmi::core::{HostError, Trap, TrapCode};
@@ -444,6 +445,7 @@ impl Runtime {
     fn _evm_return(data_ptr: u32, data_len: u32) -> Result<(), Trap> {
         let output = read_buf(mem, data_ptr, data_len);
         println!("_evm_return: {:?}, mem: {:?}, len: {}", output, data_ptr, data_len);
+
         Err(HostReturn::Data(0, output).into())
     }
 
@@ -592,10 +594,9 @@ impl Runtime {
             .map(|(index, _)| index) {
             callee
         } else {
-
             return Ok(());
         };
-        //TODO: change to return 0 in dest
+
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
         let ((ret, data), state) = match vm.call("call", callee, input, value) {
             Some(Ok(state)) => ((state.data().output.as_data()), state),
@@ -609,11 +610,12 @@ impl Runtime {
         }
 
         if ret == 0 {
-            vm.accept_state(state.into_data(), value);
+            let data = state.into_data();
+            vm.accept_state(data, value);
             mem[dest as usize] = true as u8;
             //set dest to true
         }
-
+        println!("Evm call ok {}", ret);
         Ok(())
     }
 
@@ -751,12 +753,17 @@ impl Runtime {
         let salt = read_buf(mem, salt, 32);
         let value = read_value(mem, value);
 
+        println!("_evm_create2");
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
 
         let state = vm.deploy(value, &salt, input).expect("CodeNotFound").expect("CalleeTrapped");
 
         let address = state.data().accounts.last().unwrap().address;
         write_buf(mem, dest, &address);
+
+        if state.data().output.as_data().0 == 0 {
+            vm.accept_state(state.into_data(), value);
+        }
 
         Ok(())
     }
@@ -770,9 +777,14 @@ impl Runtime {
         let input = read_buf(mem, bytecode_offset, bytecode_length);
         let value = read_value(mem, value);
 
+        println!("_evm_create");
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
 
-        vm.deploy(value, &[], input).expect("CodeNotFound").expect("CalleeTrapped");
+        let state = vm.deploy(value, &[], input).expect("CodeNotFound").expect("CalleeTrapped");
+
+        if state.data().output.as_data().0 == 0 {
+            vm.accept_state(state.into_data(), value);
+        }
 
         Ok(())
     }

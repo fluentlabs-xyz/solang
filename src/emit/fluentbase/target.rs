@@ -1033,32 +1033,31 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
             ast::CallTy::Static => unreachable!("sema does not allow this"),
         };
 
-        // let is_success =
-        //     binary
-        //         .builder
-        //         .build_int_compare(IntPredicate::EQ, ret, i32_zero!(), "success");
+        let res = binary.builder.build_load(binary.context.bool_type(), dest_ptr, "result").into_int_value();
+        let is_success =
+            binary
+                .builder
+                .build_int_compare(IntPredicate::NE, res, binary.context.bool_type().const_zero(), "success");
 
-        // if let Some(success) = success {
-        //     println!("Success");
-        //     // we're in a try statement. This means:
-        //     // do not abort execution; return success or not in success variable
-        //     *success = is_success.into();
-        // } else {
-        //     println!("Not success");
-        //     let success_block = binary.context.append_basic_block(function, "success");
-        //     let bail_block = binary.context.append_basic_block(function, "bail");
-        //
-        //     binary
-        //         .builder
-        //         .build_conditional_branch(is_success, success_block, bail_block);
-        //
-        //     binary.builder.position_at_end(bail_block);
-        //
-        //     binary.log_runtime_error(self, "external call failed".to_string(), Some(loc), ns);
-        //     self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
-        //
-        //     binary.builder.position_at_end(success_block);
-        // }
+        if let Some(success) = success {
+            // we're in a try statement. This means:
+            // do not abort execution; return success or not in success variable
+            *success = is_success.into();
+        } else {
+            let success_block = binary.context.append_basic_block(function, "success");
+            let bail_block = binary.context.append_basic_block(function, "bail");
+
+            binary
+                .builder
+                .build_conditional_branch(is_success, success_block, bail_block);
+
+            binary.builder.position_at_end(bail_block);
+
+            binary.log_runtime_error(self, "external call failed".to_string(), Some(loc), ns);
+            self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
+
+            binary.builder.position_at_end(success_block);
+        }
     }
 
     /// Send value to address

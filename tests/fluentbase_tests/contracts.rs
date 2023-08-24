@@ -35,7 +35,6 @@ fn external_call() {
     );
 
     runtime.constructor(0, Vec::new());
-
     runtime.function("test", Vec::new());
 
     assert_eq!(runtime.output(), Ret(1020).encode());
