@@ -1290,7 +1290,7 @@ fn try_type_method(
                 let call_args =
                     parse_call_args(loc, call_args, true, context, ns, symtable, diagnostics)?;
 
-                if ty != CallTy::Regular && call_args.value.is_some() {
+                if ty != CallTy::Regular && call_args.value.is_some()  {
                     diagnostics.push(Diagnostic::error(
                         *loc,
                         format!("'{}' cannot have value specified", func.name,),

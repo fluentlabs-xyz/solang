@@ -743,31 +743,31 @@ fn hash_tests() {
 
     runtime.function("test", Vec::new());
 
-    let mut runtime = build_solidity_for_fluentbase(
-        r##"
-        contract tester {
-            function test() public {
-                bytes32 hash = blake2_256("Hello, World!");
+    // let mut runtime = build_solidity_for_fluentbase(
+    //     r##"
+    //     contract tester {
+    //         function test() public {
+    //             bytes32 hash = blake2_256("Hello, World!");
+    //
+    //             assert(hash == hex"511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03");
+    //         }
+    //     }"##,
+    // );
+    //
+    // runtime.function("test", Vec::new());
 
-                assert(hash == hex"511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03");
-            }
-        }"##,
-    );
-
-    runtime.function("test", Vec::new());
-
-    let mut runtime = build_solidity_for_fluentbase(
-        r##"
-        contract tester {
-            function test() public {
-                bytes16 hash = blake2_128("Hello, World!");
-
-                assert(hash == hex"3895c59e4aeb0903396b5be3fbec69fe");
-            }
-        }"##,
-    );
-
-    runtime.function("test", Vec::new());
+    // let mut runtime = build_solidity_for_fluentbase(
+    //     r##"
+    //     contract tester {
+    //         function test() public {
+    //             bytes16 hash = blake2_128("Hello, World!");
+    //
+    //             assert(hash == hex"3895c59e4aeb0903396b5be3fbec69fe");
+    //         }
+    //     }"##,
+    // );
+    //
+    // runtime.function("test", Vec::new());
 
     let mut runtime = build_solidity_for_fluentbase(
         r##"

@@ -6,6 +6,8 @@ use parity_scale_codec::{Decode, Encode};
 #[derive(Debug, PartialEq, Eq, Encode, Decode)]
 struct RevertReturn(u32, String);
 
+
+
 #[test]
 fn external_call() {
     #[derive(Debug, PartialEq, Eq, Encode, Decode)]

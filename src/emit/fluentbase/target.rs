@@ -899,9 +899,64 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
                     value_ptr.into(),
                     encoded_args.into(),
                     encoded_args_len.into(),
+                    address.into(),
                 ]
             );
         }
+
+        let zero_address = binary.builder.build_alloca(binary.address_type(ns), "zero_address");
+        call!(
+            "__memset",
+            &[
+                zero_address.into(),
+                binary.context.i8_type().const_int(0, false).into(),
+                binary.context.i32_type().const_int(20, false).into(),
+            ]
+        );
+
+        let res = binary.builder
+            .build_call(
+                binary.module.get_function("__memcmp").unwrap(),
+                &[
+                    address.into(),
+                    binary.context.i32_type().const_int(20, false).into(),
+                    zero_address.into(),
+                    binary.context.i32_type().const_int(20, false).into(),
+                ],
+                "",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let is_success =
+            binary
+                .builder
+                .build_int_compare(IntPredicate::EQ, res, binary.context.bool_type().const_zero(), "success");
+
+        log_return_code(binary, "create contract res", is_success);
+
+        if let Some(success) = success {
+            // we're in a try statement. This means:
+            // return success or not in success variable; do not abort execution
+            *success = is_success.into();
+        } else {
+            let success_block = binary.context.append_basic_block(function, "success");
+            let bail_block = binary.context.append_basic_block(function, "bail");
+
+            binary
+                .builder
+                .build_conditional_branch(is_success, success_block, bail_block);
+
+            binary.builder.position_at_end(bail_block);
+
+            binary.log_runtime_error(self, "contract creation failed".to_string(), Some(loc), ns);
+            self.assert_failure(binary, byte_ptr!().const_null(), i32_zero!());
+
+            binary.builder.position_at_end(success_block);
+        }
+
     }
 
     /// Call external binary

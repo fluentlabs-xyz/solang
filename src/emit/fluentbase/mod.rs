@@ -211,7 +211,6 @@ impl FluentbaseTarget {
                 .i32_type()
                 .const_int(SCRATCH_SIZE as u64, false),
         );
-        println!("Build call");
         binary.builder.build_call(
             binary.module.get_function("input").unwrap(),
             &[scratch_buf.into(), scratch_len.into()],
@@ -276,7 +275,7 @@ impl FluentbaseTarget {
         external!("_evm_caller", void_type, u8_ptr);
         external!("_evm_callvalue", void_type, u32_ptr);
         external!("_evm_create2", void_type, u8_ptr, u8_ptr, u32_val, u8_ptr, u8_ptr);
-        external!("_evm_create", void_type, u8_ptr, u8_ptr, u32_val);
+        external!("_evm_create", void_type, u8_ptr, u8_ptr, u32_val, u8_ptr);
         external!("_evm_call", void_type, u64_val, u8_ptr, u8_ptr, u8_ptr, u32_val, u8_ptr, u32_ptr, u8_ptr);
         external!("_evm_return", void_type, u8_ptr, u32_val);
         external!("_evm_revert", void_type, u8_ptr, u32_val);
@@ -295,7 +294,6 @@ impl FluentbaseTarget {
         let export_name = if init.is_some() { "deploy" } else { "call" };
         let func = bin.module.add_function(export_name, ty, None);
         let (input, input_length) = self.public_function_prelude(bin, func);
-        println!("Emit dispatch, {:?} {:?}", input, input_length);
         let args = vec![
             BasicMetadataValueEnum::PointerValue(input),
             BasicMetadataValueEnum::IntValue(input_length),

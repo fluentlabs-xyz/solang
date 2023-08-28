@@ -160,11 +160,13 @@ impl Contract {
             .unwrap_or_else(|| panic!("contract does not export '{name}'"));
         println!("Func: {:?}", func);
 
-        match instance
+        let rs = instance
             .get_export(&store, name)
             .and_then(|export| export.into_func())
             .unwrap_or_else(|| panic!("contract does not export '{name}'"))
-            .call(&mut store, &[], &mut [])
+            .call(&mut store, &[], &mut []);
+        println!("Call rs: {:?}", rs);
+        let rs = match rs
         {
             Err(Error::Trap(trap)) if trap.trap_code().is_some() => {
                 Err((Error::Trap(trap), store.data().debug_buffer.clone()))
@@ -179,7 +181,11 @@ impl Contract {
             },
             Err(e) => panic!("unexpected error during contract execution: {e}"),
             Ok(_) => Ok(store),
-        }
+        };
+
+        println!("Storage after call: {:?}", self.storage);
+
+        rs
     }
 }
 
@@ -432,11 +438,15 @@ impl Runtime {
     ) -> Result<(), Trap> {
         let key = StorageKey::try_from(read_buf(mem, slot, 32))
             .expect("storage key size must be 32 bytes");
-        let value = mem[value as usize..(value + 14) as usize].to_vec();
+        let value = mem[value as usize..(value + 32) as usize].to_vec();
 
-        println!("_evm_sstore: {}={}", hex::encode(key), hex::encode(&value));
+        println!("_evm_sstore: {}={}, slot: {:?}", hex::encode(key), hex::encode(&value), slot);
 
-        vm.contract().storage.insert(key, value);
+        if value.as_slice() == &[0;32] {
+            vm.contract().storage.remove(&key);
+        } else {
+            vm.contract().storage.insert(key, value);
+        }
 
         Ok(())
     }
@@ -584,7 +594,7 @@ impl Runtime {
         let value = read_value(mem, value);
         let address = read_account(mem, address);
 
-        println!("Evm Call");
+        println!("_evm_call");
 
         let callee = if let Some(callee) = vm
             .accounts
@@ -596,7 +606,6 @@ impl Runtime {
         } else {
             return Ok(());
         };
-
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
         let ((ret, data), state) = match vm.call("call", callee, input, value) {
             Some(Ok(state)) => ((state.data().output.as_data()), state),
@@ -752,18 +761,23 @@ impl Runtime {
         let input = read_buf(mem, constructor_offset, constructor_length);
         let salt = read_buf(mem, salt, 32);
         let value = read_value(mem, value);
+        let mut address = [0;20];
 
         println!("_evm_create2");
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
 
-        let state = vm.deploy(value, &salt, input).expect("CodeNotFound").expect("CalleeTrapped");
-
-        let address = state.data().accounts.last().unwrap().address;
-        write_buf(mem, dest, &address);
+        let state = match vm.deploy(value, &salt, input) {
+            Some(Ok(state)) => state,
+            _ => return Ok(()),
+        };
 
         if state.data().output.as_data().0 == 0 {
+            address = state.data().accounts.last().unwrap().address;
+            write_buf(mem, dest, &address);
             vm.accept_state(state.into_data(), value);
         }
+
+        println!("Create2 address: {:?}", address);
 
         Ok(())
     }
@@ -773,9 +787,11 @@ impl Runtime {
         value: u32,
         bytecode_offset: u32,
         bytecode_length: u32,
+        dest: u32,
     ) -> Result<(), Trap> {
         let input = read_buf(mem, bytecode_offset, bytecode_length);
         let value = read_value(mem, value);
+        let mut address = [0;20];
 
         println!("_evm_create");
         assert!(value <= vm.accounts[vm.account].value, "TransferFailed");
@@ -783,6 +799,8 @@ impl Runtime {
         let state = vm.deploy(value, &[], input).expect("CodeNotFound").expect("CalleeTrapped");
 
         if state.data().output.as_data().0 == 0 {
+            address = state.data().accounts.last().unwrap().address;
+            write_buf(mem, dest, &address);
             vm.accept_state(state.into_data(), value);
         }
 
@@ -1196,6 +1214,7 @@ impl MockWasm {
         runtime.events.clear();
         runtime.called_accounts.clear();
         self.0 = runtime.call(export, callee, input, value).unwrap()?;
+        println!("Account after invoke: {:?}", self.0.data().accounts);
         self.0.data_mut().transferred_value = 0;
 
         Ok(())
