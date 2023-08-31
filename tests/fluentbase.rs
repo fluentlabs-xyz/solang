@@ -660,6 +660,8 @@ impl Runtime {
         }
 
         if ret == 0 {
+            let data = state.into_data();
+            vm.accept_state(data, value);
             mem[dest as usize] = true as u8;
             //set dest to true
         }

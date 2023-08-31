@@ -157,4 +157,7 @@
 
 // ---- Expect: diagnostics ----
 // warning: 67:31-43: local variable 'payoutToSend' has been assigned, but never read
+// warning: 79:44-66: conversion truncates uint128 to uint64, as value is type uint64 on target FLUENTBASE
+// warning: 89:44-57: conversion truncates uint128 to uint64, as value is type uint64 on target FLUENTBASE
+// warning: 97:44-66: conversion truncates uint128 to uint64, as value is type uint64 on target FLUENTBASE
 // warning: 150:87-94: return variable 'Address' has never been assigned
