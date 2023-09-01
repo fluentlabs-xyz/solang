@@ -1137,14 +1137,14 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
         call!(
             "_evm_call",
             &[
-                binary.context.i32_type().const_int(0, false).into(),
+                binary.context.i64_type().const_int(0, false).into(),
                 address.into(),
                 value_ptr.into(),
+                binary.context.i8_type().ptr_type(AddressSpace::default()).const_zero().into(),
                 binary.context.i32_type().const_int(0, false).into(),
-                binary.context.i32_type().const_int(0, false).into(),
-                binary.context.i32_type().const_int(0, false).into(),
-                binary.context.i32_type().const_int(0, false).into(),
-                binary.context.i32_type().const_int(0, false).into(),
+                binary.context.i8_type().ptr_type(AddressSpace::default()).const_zero().into(),
+                binary.context.i32_type().ptr_type(AddressSpace::default()).const_zero().into(),
+                binary.context.i8_type().ptr_type(AddressSpace::default()).const_zero().into()
             ]
         );
     }
@@ -1417,10 +1417,10 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
                     "_evm_codecopy",
                     &[
                         data.into(),
-                        binary.context.i32_type().const_int(0, false).into(),
+                        binary.context.i32_type().ptr_type(AddressSpace::default()).const_zero().into(),
                         binary
                             .builder
-                            .build_load(binary.value_type(ns), scratch_buf, "balance")
+                            .build_load(binary.context.i32_type(), scratch_buf, "length")
                             .into()
                     ],
                     "data"

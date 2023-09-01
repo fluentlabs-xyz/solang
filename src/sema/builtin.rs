@@ -483,7 +483,7 @@ static BUILTIN_VARIABLE: Lazy<[Prototype; 18]> = Lazy::new(|| {
             name: "gasprice",
             params: vec![],
             ret: vec![Type::Value],
-            target: vec![Target::default_polkadot(), Target::EVM],
+            target: vec![Target::default_polkadot(), Target::EVM, Target::FLUENTBASE],
             doc: "gas price for one gas unit",
             constant: false,
         },
