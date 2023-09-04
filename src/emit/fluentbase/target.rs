@@ -810,16 +810,7 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
         binary.builder.build_unreachable();
     }
 
-    fn print(&self, binary: &Binary, string_ptr: PointerValue, string_len: IntValue) {
-        emit_fluentbase_context!(binary);
-
-        let ret = call!("debug_message", &[string_ptr.into(), string_len.into()])
-            .try_as_basic_value()
-            .left()
-            .unwrap()
-            .into_int_value();
-
-        log_return_code(binary, "seal_debug_message", ret);
+    fn print(&self, _binary: &Binary, _string_ptr: PointerValue, _string_len: IntValue) {
     }
 
     fn create_contract<'b>(

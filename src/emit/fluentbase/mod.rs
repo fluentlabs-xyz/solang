@@ -211,9 +211,24 @@ impl FluentbaseTarget {
                 .i32_type()
                 .const_int(SCRATCH_SIZE as u64, false),
         );
+
         binary.builder.build_call(
-            binary.module.get_function("input").unwrap(),
-            &[scratch_buf.into(), scratch_len.into()],
+            binary.module.get_function("_evm_codesize").unwrap(),
+            &[
+                scratch_len.into()
+            ],
+            "",
+        );
+        binary.builder.build_call(
+            binary.module.get_function("_evm_codecopy").unwrap(),
+            &[
+                scratch_buf.into(),
+                binary.context.i32_type().ptr_type(AddressSpace::default()).const_zero().into(),
+                binary
+                    .builder
+                    .build_load(binary.context.i32_type(), scratch_len, "length")
+                    .into()
+            ],
             "",
         );
 
@@ -251,9 +266,6 @@ impl FluentbaseTarget {
 
         //TODO: Need to remove
         external!("instantiation_nonce", i64_type,);
-        external!("debug_message", i32_type, u8_ptr, u32_val);
-        external!("code_hash", i32_type, u8_ptr, u8_ptr, u32_ptr);
-        external!("input", void_type, u8_ptr, u32_ptr);
 
         //Not supported
         external!("hash_keccak_256", void_type, u8_ptr, u32_val, u8_ptr);
