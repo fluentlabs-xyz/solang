@@ -842,20 +842,20 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
         let salt_buf =
             binary.build_alloca(function, binary.context.i8_type().array_type(32), "salt");
 
-        // let salt = contract_args.salt;
-        // TODO: Remove and test simple call
-        let salt = Some(contract_args.salt.unwrap_or_else(|| {
-            let nonce = call!("instantiation_nonce", &[], "instantiation_nonce_ext")
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-            log_return_code(binary, "instantiation_nonce", nonce);
-            let i256_t = binary.context.custom_width_int_type(256);
-            binary
-                .builder
-                .build_int_z_extend_or_bit_cast(nonce, i256_t, "instantiation_nonce")
-        }));
+        let salt = contract_args.salt;
+        // // TODO: Remove and test simple call
+        // let salt = Some(contract_args.salt.unwrap_or_else(|| {
+        //     let nonce = call!("instantiation_nonce", &[], "instantiation_nonce_ext")
+        //         .try_as_basic_value()
+        //         .left()
+        //         .unwrap()
+        //         .into_int_value();
+        //     log_return_code(binary, "instantiation_nonce", nonce);
+        //     let i256_t = binary.context.custom_width_int_type(256);
+        //     binary
+        //         .builder
+        //         .build_int_z_extend_or_bit_cast(nonce, i256_t, "instantiation_nonce")
+        // }));
 
         let encoded_args = binary.vector_bytes(encoded_args);
 
