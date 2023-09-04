@@ -189,7 +189,5 @@ fn check_diagnostics(path: &Path, ns: &Namespace) {
     assert!(!found.is_empty());
 
     assert_eq!(found, expected, "source: {}", path.display());
-    if found.ne(&expected) {
-        println!("Wrong parsing: Found: {}, Expect: {}, source: {}", found, expected, path.display());
-    }
+
 }

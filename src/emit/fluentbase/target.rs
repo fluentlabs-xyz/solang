@@ -1006,61 +1006,9 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
                         dest_ptr.into(),
                     ]
                 );
-                // log_return_code(binary, "seal_call", ret);
             }
             ast::CallTy::Delegate => {
-                // delegate_call asks for a code hash instead of an address
-                let hash_len = i32_const!(32); // FIXME: This is configurable like the address length
-                let code_hash_out_ptr = binary.builder.build_array_alloca(
-                    binary.context.i8_type(),
-                    hash_len,
-                    "code_hash_out_ptr",
-                );
-                let code_hash_out_len_ptr = binary
-                    .builder
-                    .build_alloca(binary.context.i32_type(), "code_hash_out_len_ptr");
-                binary.builder.build_store(code_hash_out_len_ptr, hash_len);
-                let code_hash_ret = call!(
-                    "code_hash",
-                    &[
-                        address.unwrap().into(),
-                        code_hash_out_ptr.into(),
-                        code_hash_out_len_ptr.into(),
-                    ]
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                log_return_code(binary, "seal_code_hash", code_hash_ret);
-
-                let code_hash_found = binary.builder.build_int_compare(
-                    IntPredicate::EQ,
-                    code_hash_ret,
-                    i32_zero!(),
-                    "code_hash_found",
-                );
-                let entry = binary.builder.get_insert_block().unwrap();
-                let call_block = binary
-                    .context
-                    .append_basic_block(function, "code_hash_found");
-                let not_found_block = binary
-                    .context
-                    .append_basic_block(function, "code_hash_not_found");
-                let done_block = binary.context.append_basic_block(function, "done_block");
-                binary.builder.build_conditional_branch(
-                    code_hash_found,
-                    call_block,
-                    not_found_block,
-                );
-
-                binary.builder.position_at_end(not_found_block);
-                let msg = "delegatecall callee is not a contract account";
-                binary.log_runtime_error(self, msg.into(), Some(loc), ns);
-                binary.builder.build_unconditional_branch(done_block);
-
-                binary.builder.position_at_end(call_block);
-                let delegate_call_ret = call!(
+                call!(
                     "_evm_delegatecall",
                     &[
                         contract_args.gas.unwrap().into(),
@@ -1071,19 +1019,7 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
                         scratch_len.into(),
                         dest_ptr.into(),
                     ]
-                )
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                // log_return_code(binary, "seal_delegate_call", delegate_call_ret);
-                binary.builder.build_unconditional_branch(done_block);
-
-                binary.builder.position_at_end(done_block);
-                let ty = binary.context.i32_type();
-                let ret = binary.builder.build_phi(ty, "storage_res");
-                ret.add_incoming(&[(&code_hash_ret, not_found_block), (&ty.const_zero(), entry)]);
-                ret.add_incoming(&[(&delegate_call_ret, call_block), (&ty.const_zero(), entry)]);
+                );
             }
             ast::CallTy::Static => unreachable!("sema does not allow this"),
         };
@@ -1532,7 +1468,6 @@ impl<'a> TargetRuntime<'a> for FluentbaseTarget {
                 ..
             } => {
                 let (scratch_buf, scratch_len) = scratch_buf!();
-                println!("_evm_caller");
                 call!(
                     "_evm_caller",
                     &[scratch_buf.into(),],
