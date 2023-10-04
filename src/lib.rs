@@ -20,7 +20,7 @@ use solang_parser::pt;
 use std::{ffi::OsStr, fmt};
 
 /// The target chain you want to compile Solidity for.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Target {
     /// Solana, see <https://solana.com/>
     Solana,
@@ -31,6 +31,7 @@ pub enum Target {
     },
     /// Ethereum EVM, see <https://ethereum.org/en/developers/docs/evm/>
     EVM,
+    FLUENTBASE,
 }
 
 impl fmt::Display for Target {
@@ -39,6 +40,7 @@ impl fmt::Display for Target {
             Target::Solana => write!(f, "Solana"),
             Target::Polkadot { .. } => write!(f, "Polkadot"),
             Target::EVM => write!(f, "EVM"),
+            Target::FLUENTBASE => write!(f, "FLUENTBASE"),
         }
     }
 }
@@ -51,6 +53,7 @@ impl PartialEq for Target {
             Target::Solana => matches!(other, Target::Solana),
             Target::Polkadot { .. } => matches!(other, Target::Polkadot { .. }),
             Target::EVM => matches!(other, Target::EVM),
+            Target::FLUENTBASE => matches!(other, Target::FLUENTBASE),
         }
     }
 }
@@ -58,7 +61,7 @@ impl PartialEq for Target {
 impl Target {
     /// Short-hand for checking for Polkadot target
     pub fn is_polkadot(&self) -> bool {
-        matches!(self, Target::Polkadot { .. })
+        matches!(self, Target::Polkadot { .. } | Target::FLUENTBASE)
     }
 
     /// Create the target Polkadot with default parameters
@@ -75,6 +78,7 @@ impl Target {
             "solana" => Some(Target::Solana),
             "polkadot" => Some(Target::default_polkadot()),
             "evm" => Some(Target::EVM),
+            "fluentbase" => Some(Target::FLUENTBASE),
             _ => None,
         }
     }
@@ -180,7 +184,6 @@ pub fn parse_and_resolve(
     target: Target,
 ) -> sema::ast::Namespace {
     let mut ns = sema::ast::Namespace::new(target);
-
     match resolver.resolve_file(None, filename) {
         Err(message) => {
             ns.diagnostics.push(sema::ast::Diagnostic {

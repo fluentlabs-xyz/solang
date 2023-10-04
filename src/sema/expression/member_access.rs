@@ -18,6 +18,7 @@ use solang_parser::diagnostics::Diagnostic;
 use solang_parser::pt;
 use solang_parser::pt::CodeLocation;
 use std::ops::{Shl, Sub};
+use crate::Target;
 
 /// Resolve an member access expression
 pub(super) fn member_access(
@@ -344,7 +345,7 @@ pub(super) fn member_access(
         },
         Type::Address(_) => {
             if id.name == "balance" {
-                if ns.target.is_polkadot() {
+                if ns.target.is_polkadot() && ns.target.ne(&Target::FLUENTBASE){
                     let mut is_this = false;
 
                     if let Expression::Cast { expr: this, .. } = &expr {

@@ -715,7 +715,7 @@ fn check_mangled_function_names(contract_no: usize, ns: &mut ast::Namespace) {
 fn polkadot_requires_public_functions(contract_no: usize, ns: &mut ast::Namespace) {
     let contract = &mut ns.contracts[contract_no];
 
-    if ns.target.is_polkadot()
+    if matches!(ns.target, crate::Target::Polkadot { .. })
         && !ns.diagnostics.any_errors()
         && contract.is_concrete()
         && !contract.all_functions.keys().any(|func_no| {

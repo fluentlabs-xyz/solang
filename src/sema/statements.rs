@@ -983,7 +983,7 @@ fn revert_pos_arg(
             ));
         }
 
-        if ns.target != Target::EVM {
+        if ns.target != Target::EVM && ns.target != Target::FLUENTBASE {
             ns.diagnostics.push(Diagnostic::error(
                 *loc,
                 format!("revert with custom errors not supported on {}", ns.target),
@@ -1156,7 +1156,7 @@ fn revert_named_arg(
             }
         }
 
-        if ns.target != Target::EVM {
+        if ns.target != Target::EVM && ns.target != Target::FLUENTBASE {
             ns.diagnostics.push(Diagnostic::error(
                 *loc,
                 format!("revert with custom errors not supported on {}", ns.target),

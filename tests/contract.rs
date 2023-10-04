@@ -35,6 +35,11 @@ fn evm_contracts() -> io::Result<()> {
     contract_tests("tests/contract_testcases/evm", Target::EVM)
 }
 
+#[test]
+fn fluentbase_contracts() -> io::Result<()> {
+    contract_tests("tests/contract_testcases/fluentbase", Target::FLUENTBASE)
+}
+
 fn contract_tests(file_path: &str, target: Target) -> io::Result<()> {
     let path = PathBuf::from(file_path);
     recurse_directory(path, target)
@@ -54,6 +59,8 @@ fn recurse_directory(path: PathBuf, target: Target) -> io::Result<()> {
             }
         }
     }
+
+    println!("Entries: {:?}", entries);
 
     entries.into_par_iter().for_each(|entry| {
         parse_file(entry, target).unwrap();
@@ -90,10 +97,12 @@ fn parse_file(path: PathBuf, target: Target) -> io::Result<()> {
 
     check_diagnostics(&path, &ns);
 
+    println!("Checks finished");
+
     if !ns.diagnostics.any_errors() {
         // let's try and emit
         match ns.target {
-            Target::Solana | Target::Polkadot { .. } => {
+            Target::Solana | Target::Polkadot { .. } | Target::FLUENTBASE => {
                 for contract in &ns.contracts {
                     if contract.instantiable {
                         let _ = contract.emit(&ns, &Default::default());
@@ -180,4 +189,5 @@ fn check_diagnostics(path: &Path, ns: &Namespace) {
     assert!(!found.is_empty());
 
     assert_eq!(found, expected, "source: {}", path.display());
+
 }

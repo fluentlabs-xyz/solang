@@ -24,7 +24,7 @@ impl HostFn {
             .attrs
             .iter()
             .find(|attr| attr.path().get_ident().unwrap() == "seal")
-            .map(|attr| format!("seal{}", attr.parse_args::<LitInt>().unwrap()))?;
+            .map(|attr| format!("seal{}", attr.parse_args::<LitInt>().unwrap())).unwrap_or("env".to_string());
 
         Some(HostFn {
             name: item.sig.ident.to_string(),

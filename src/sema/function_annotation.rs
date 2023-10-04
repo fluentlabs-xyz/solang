@@ -75,7 +75,7 @@ fn function_selector(
     ns: &mut Namespace,
 ) {
     if func.ty != pt::FunctionTy::Function
-        && (!ns.target.is_polkadot() || func.ty != pt::FunctionTy::Constructor)
+        && (!matches!(ns.target, crate::Target::Polkadot { .. }) || func.ty != pt::FunctionTy::Constructor)
     {
         diagnostics.push(Diagnostic::error(
             annotation.loc,

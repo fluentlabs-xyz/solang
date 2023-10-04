@@ -342,7 +342,7 @@ fn tx() {
     let mut runtime = build_solidity(
         r##"
         contract bar {
-            function test() public {
+            function test_gas_price() public {
                 uint128 b = tx.gasprice(1);
 
                 assert(b == 59_541_253_813_967);
@@ -350,7 +350,8 @@ fn tx() {
         }"##,
     );
 
-    runtime.function("test", Vec::new());
+    runtime.function("test_gas_price", Vec::new());
+
 
     let mut runtime = build_solidity(
         r##"

@@ -20,6 +20,7 @@ use wasm_host_attr::wasm_host;
 
 mod polkadot_tests;
 
+
 type StorageKey = [u8; 32];
 type Address = [u8; 32];
 
@@ -69,7 +70,7 @@ impl fmt::Display for HostReturn {
 impl HostError for HostReturn {}
 
 /// Represents a contract code artifact.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WasmCode {
     /// A mapping from function names to selectors.
     messages: HashMap<String, Vec<u8>>,
@@ -798,9 +799,9 @@ impl Runtime {
 /// Provides a mock implementation of substrates [contracts pallet][1]
 ///
 /// [1]: https://docs.rs/pallet-contracts/latest/pallet_contracts/index.html
-pub struct MockSubstrate(Store<Runtime>);
+pub struct MockWasm(Store<Runtime>);
 
-impl MockSubstrate {
+impl MockWasm {
     fn invoke(&mut self, export: &str, input: Vec<u8>) -> Result<(), Error> {
         let callee = self.0.data().account;
         let value = self.0.data().transferred_value;
@@ -1021,28 +1022,27 @@ impl MockSubstrate {
 /// The mock runtime will contain a contract account for each contract in `src`:
 /// * Each account will have a balance of 20'000
 /// * However, constructors are _not_ called, therefor the storage will not be initialized
-pub fn build_solidity(src: &str) -> MockSubstrate {
+pub fn build_solidity(src: &str) -> MockWasm {
     build_solidity_with_options(src, false, true)
 }
 
 /// A variant of `MockSubstrate::uild_solidity()` with the ability to specify compiler options:
 /// * log_ret: enable logging of host function return codes
 /// * log_err: enable logging of runtime errors
-pub fn build_solidity_with_options(src: &str, log_ret: bool, log_err: bool) -> MockSubstrate {
-    let blobs = build_wasm(src, log_ret, log_err)
+pub fn build_solidity_with_options(src: &str, log_ret: bool, log_err: bool) -> MockWasm {
+    let blobs = build_wasm(src, log_ret, log_err, Target::default_polkadot())
         .iter()
         .map(|(code, abi)| WasmCode::new(abi, code))
         .collect();
 
-    MockSubstrate(Store::new(&Engine::default(), Runtime::new(blobs)))
+    MockWasm(Store::new(&Engine::default(), Runtime::new(blobs)))
 }
 
-pub fn build_wasm(src: &str, log_ret: bool, log_err: bool) -> Vec<(Vec<u8>, String)> {
+pub fn build_wasm(src: &str, log_ret: bool, log_err: bool, target: Target) -> Vec<(Vec<u8>, String)> {
     let tmp_file = OsStr::new("test.sol");
     let mut cache = FileResolver::new();
     cache.set_file_contents(tmp_file.to_str().unwrap(), src.to_string());
     let opt = inkwell::OptimizationLevel::Default;
-    let target = Target::default_polkadot();
     let (wasm, ns) = compile(
         tmp_file,
         &mut cache,
